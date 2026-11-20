@@ -75,7 +75,9 @@ export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [samples, setSamples] = useState<SampleAgendaItem[]>([])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false)
+  const [isUploadAnalyzing, setIsUploadAnalyzing] = useState<boolean>(false)
+  const [analyzingSampleId, setAnalyzingSampleId] = useState<string | null>(null)
+  const isAnalyzing = isUploadAnalyzing || analyzingSampleId !== null
   const [analysisResult, setAnalysisResult] = useState<DocumentAnalysisResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'found' | 'unclear' | 'not_found_in_document'>('all')
@@ -164,9 +166,9 @@ export default function App() {
   }
 
   const handleAnalyzeUpload = async () => {
-    if (!selectedFile) return
+    if (!selectedFile || isAnalyzing) return
 
-    setIsAnalyzing(true)
+    setIsUploadAnalyzing(true)
     setErrorMessage(null)
     setAnalysisResult(null)
 
@@ -193,12 +195,14 @@ export default function App() {
         setErrorMessage('An unexpected error occurred during document analysis.')
       }
     } finally {
-      setIsAnalyzing(false)
+      setIsUploadAnalyzing(false)
     }
   }
 
   const handleAnalyzeSample = async (sampleId: string) => {
-    setIsAnalyzing(true)
+    if (isAnalyzing) return
+
+    setAnalyzingSampleId(sampleId)
     setErrorMessage(null)
     setAnalysisResult(null)
     setSelectedFile(null)
@@ -222,7 +226,7 @@ export default function App() {
         setErrorMessage('An unexpected error occurred during sample document analysis.')
       }
     } finally {
-      setIsAnalyzing(false)
+      setAnalyzingSampleId(null)
     }
   }
 
@@ -553,10 +557,10 @@ export default function App() {
                       fontWeight: 600,
                       fontSize: '0.85rem',
                       cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-                      opacity: isAnalyzing ? 0.6 : 1
+                      opacity: isAnalyzing ? (analyzingSampleId === sample.id ? 0.8 : 0.5) : 1
                     }}
                   >
-                    {isAnalyzing ? 'Analyzing...' : 'Analyze Sample'}
+                    {analyzingSampleId === sample.id ? 'Analyzing...' : 'Analyze Sample'}
                   </button>
                   <a
                     href={getApiUrl(`/api/documents/samples/${sample.id}/download`)}
@@ -681,7 +685,7 @@ export default function App() {
                     opacity: isAnalyzing ? 0.7 : 1
                   }}
                 >
-                  {isAnalyzing ? 'Analyzing Agenda...' : 'Analyze Uploaded Agenda'}
+                  {isUploadAnalyzing ? 'Analyzing Agenda...' : 'Analyze Uploaded Agenda'}
                 </button>
                 <button
                   onClick={() => {
