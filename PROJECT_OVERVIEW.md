@@ -67,7 +67,7 @@ Deadlines are interpreted through an attendee-support lens rather than a legal v
 
 ## 3. Real-World Agenda Benchmarks & Ground Truth
 
-MEETING ACCESS was validated against authentic, unaltered government records downloaded directly from California municipal web portals:
+MEETING ACCESS was validated against authentic, unaltered government records downloaded directly from California municipal web portals. These files serve as reproducible repository test fixtures and automated regression benchmarks—they are optional demo fixtures, not mandatory application inputs:
 
 | Benchmark Fixture | Jurisdiction & Body | Meeting Date | Pages | Key Distinct Features |
 | :--- | :--- | :--- | :---: | :--- |
@@ -90,7 +90,7 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
          ▼
 [ React 19 + TypeScript + Vite Frontend ]
   • High-contrast accessible design
-  • One-click authentic sample agenda cards
+  • User-upload-first workflow with optional authentic test fixtures
   • Multi-stage animated processing indicator
   • Attendee participation action plan with clipboard copy & print
          │  HTTP REST (JSON & multipart/form-data)
@@ -103,10 +103,10 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
   └── /api/documents/analyze               (Custom PDF upload & analysis)
          │
   ├── 1. PDF Validator & Extractor (`pypdf`, `pdfplumber`)
-  │      • Ephemeral processing (0 permanent storage; temporary spooled resources deleted immediately)
-  │      • Text density & scanned document heuristic checks
+  │      • Ephemeral processing (temporary spooled resources released immediately in finally blocks)
+  │      • Text density & scanned document heuristic checks (OCR not currently implemented; scans flagged)
   │
-  ├── 2. Google Gen AI SDK (`gemini-3.8-flash`)
+  ├── 2. Google Gen AI SDK (`gemini-3.8-flash` primary with automatic fallback to `gemini-3.5-flash-lite`)
   │      • Contextual schema extraction with structured JSON output
   │      • Prompt injection containment (`<untrusted_agenda_content>`)
   │      • Exponential backoff retry handler (mitigating transient 503 spikes)
@@ -125,7 +125,7 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
 
 ## 5. Security, Privacy & Ephemeral Document Processing
 
-- **Zero Permanent Storage Footprint:** Uploaded agendas are handled via Starlette's `UploadFile` spooled temporary buffers. Small buffers remain in memory while larger payloads safely roll over to OS temporary files. In all cases, file descriptors and temporary resources are explicitly closed and deleted in `finally` blocks (`await file.close()`) immediately upon request completion. No user documents or attendee data are permanently written or retained on server disk.
+- **Ephemeral Processing & Resource Cleanup:** Uploaded agendas are handled via Starlette's `UploadFile` spooled temporary buffers. Small buffers remain in memory while larger payloads safely roll over to OS temporary files. In all cases, file descriptors and temporary resources are explicitly closed and released in `finally` blocks (`await file.close()`) immediately upon request completion. The backend does not maintain a database, persistent document archive, or long-term disk cache of user uploads.
 - **Key Isolation:** Google Gemini API keys exist exclusively in server environment variables (`GEMINI_API_KEY`) and are never exposed to the client.
 - **Prompt Injection Defense:** Untrusted document text is wrapped in defensive boundary tags (`<untrusted_agenda_content>`) with strict instructions to the model to ignore any embedded system directives.
 - **Deterministic Python Enforcement:** Even if an adversarial prompt injection succeeded in convincing the model to fabricate a finding, the pure Python verification engine would reject it because the fabricated text cannot be located on the physical page.
@@ -134,6 +134,7 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
 
 ## 6. Verification & Quality Assurance
 
-- **43 Automated Tests:** All unit and integration tests pass with 100% success across extraction, schema validation, Gemini error recovery, deadline calculations, and real-world agenda regressions.
+- **61 Automated Tests:** All unit and integration tests pass with 100% success across extraction, schema validation, multi-model fallback chain, environment parsing, deadline calculations, and real-world agenda regressions.
+- **MIT License:** Published under the open-source MIT License (see [LICENSE](LICENSE)).
 - **TypeScript Type Safety:** Frontend code is strictly typed with zero build errors under `tsc -b && vite build`.
 - **Reproducible Local Environment:** Clean monorepo structure with isolated virtualenv (`backend/.venv`) and standard npm scripts.

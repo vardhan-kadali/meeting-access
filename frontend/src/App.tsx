@@ -452,10 +452,10 @@ export default function App() {
             <strong>🛡️ Attendee Support, Not Legal Compliance:</strong> Provides practical participation guidance. Does not issue legal verdicts or numerical scores.
           </div>
           <div>
-            <strong>🔍 100% Quote Verified:</strong> Every finding is strictly verified against physical PDF pages. Zero hallucinated contacts or deadlines.
+            <strong>🔍 Quote Verified:</strong> Findings are checked against the original PDF text. Unverified evidence is marked unclear.
           </div>
           <div>
-            <strong>🔒 Ephemeral Processing:</strong> Documents are processed using temporary buffers that are closed and deleted immediately. Zero permanent file retention.
+            <strong>🔒 Ephemeral Processing:</strong> Documents are processed using temporary buffers closed immediately upon request completion. No persistent document storage.
           </div>
         </div>
 
@@ -488,106 +488,8 @@ export default function App() {
         flexDirection: 'column',
         gap: '1.75rem'
       }}>
-        {/* ONE-CLICK AUTHENTIC SAMPLE AGENDAS FOR JUDGES */}
-        <section aria-labelledby="samples-heading" style={{
-          backgroundColor: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '0.75rem',
-          padding: '1.75rem',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <h2 id="samples-heading" style={{
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              color: '#0f172a',
-              margin: 0
-            }}>
-              Try with Authentic California Agendas (One-Click Demo)
-            </h2>
-            <span style={{ fontSize: '0.8rem', backgroundColor: '#dbeafe', color: '#1e40af', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontWeight: 600 }}>
-              Judge-Ready Fixtures
-            </span>
-          </div>
-          <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0 0 1.25rem 0' }}>
-            Test the complete system instantly with authentic, unaltered public meeting agendas downloaded directly from California city and district portals.
-          </p>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '1rem'
-          }}>
-            {samples.map((sample) => (
-              <div
-                key={sample.id}
-                style={{
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '0.5rem',
-                  padding: '1rem',
-                  backgroundColor: '#f8fafc',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem', marginBottom: '0.2rem' }}>
-                    {sample.title}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                    {sample.jurisdiction} &bull; {sample.date} ({sample.pages} pages)
-                  </div>
-                  <p style={{ fontSize: '0.82rem', color: '#334155', margin: '0 0 1rem 0', lineHeight: 1.45 }}>
-                    {sample.highlight}
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <button
-                    onClick={() => handleAnalyzeSample(sample.id)}
-                    disabled={isAnalyzing}
-                    style={{
-                      flex: 1,
-                      backgroundColor: '#1e3a8a',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '0.55rem 0.85rem',
-                      borderRadius: '0.375rem',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-                      opacity: isAnalyzing ? (analyzingSampleId === sample.id ? 0.8 : 0.5) : 1
-                    }}
-                  >
-                    {analyzingSampleId === sample.id ? 'Analyzing...' : 'Analyze Sample'}
-                  </button>
-                  <a
-                    href={getApiUrl(`/api/documents/samples/${sample.id}/download`)}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      padding: '0.55rem 0.75rem',
-                      borderRadius: '0.375rem',
-                      border: '1px solid #cbd5e1',
-                      backgroundColor: '#ffffff',
-                      color: '#475569',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                      textAlign: 'center'
-                    }}
-                    title="Inspect original authentic government PDF"
-                  >
-                    View PDF
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* CUSTOM UPLOAD CARD */}
+        {/* PRIMARY USER UPLOAD SECTION */}
         <section aria-labelledby="upload-heading" style={{
           backgroundColor: '#ffffff',
           border: '1px solid #e2e8f0',
@@ -596,15 +498,15 @@ export default function App() {
           boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
         }}>
           <h2 id="upload-heading" style={{
-            fontSize: '1.25rem',
+            fontSize: '1.35rem',
             fontWeight: 800,
             color: '#0f172a',
             margin: '0 0 0.35rem 0'
           }}>
-            Or Upload Any California Meeting Agenda
+            Upload a California Meeting Agenda
           </h2>
           <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0 0 1.25rem 0' }}>
-            Accepted: City Council, Board of Supervisors, Planning Commission, or School Board agendas (text-based PDF, max 15MB, max 100 pages).
+            Upload any California public meeting agenda PDF (City Council, Board of Supervisors, Planning Commission, School Board, or Special District) to analyze disability accommodations, advance request deadlines, and participation instructions.
           </p>
 
           {/* Accessible Dropzone */}
@@ -624,7 +526,7 @@ export default function App() {
             style={{
               border: '2px dashed #94a3b8',
               borderRadius: '0.5rem',
-              padding: '2rem 1.5rem',
+              padding: '2.25rem 1.5rem',
               textAlign: 'center',
               backgroundColor: '#f8fafc',
               cursor: 'pointer',
@@ -643,8 +545,35 @@ export default function App() {
               Click to select or drag and drop agenda PDF
             </div>
             <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
-              Ephemeral processing &bull; Temporary spooled resources cleared immediately &bull; Zero permanent retention
+              Ephemeral processing &bull; Temporary buffers released upon completion &bull; No persistent file storage
             </div>
+          </div>
+
+          {/* Upload Specification Badges */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            justifyContent: 'center',
+            marginTop: '0.85rem',
+            fontSize: '0.8rem',
+            color: '#334155'
+          }}>
+            <span style={{ backgroundColor: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}>
+              📄 <strong>Format:</strong> PDF only
+            </span>
+            <span style={{ backgroundColor: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}>
+              ⚖️ <strong>Maximum Size:</strong> 15 MB
+            </span>
+            <span style={{ backgroundColor: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}>
+              📑 <strong>Maximum Length:</strong> 100 pages
+            </span>
+            <span style={{ backgroundColor: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}>
+              ✅ <strong>Text-based PDFs supported</strong>
+            </span>
+            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.25rem 0.6rem', borderRadius: '0.25rem', border: '1px solid #fde68a' }}>
+              ⚠️ <strong>OCR not supported:</strong> Scanned/image-only PDFs not yet supported
+            </span>
           </div>
 
           {/* File Selected State */}
@@ -775,6 +704,7 @@ export default function App() {
             </div>
           )}
         </section>
+
 
         {/* PARTICIPATION READINESS REPORT SECTION */}
         {analysisResult && (
@@ -1389,6 +1319,105 @@ export default function App() {
             </div>
           </section>
         )}
+
+        {/* OPTIONAL REPOSITORY TEST FIXTURES FOR REVIEWERS & JUDGES */}
+        <section aria-labelledby="samples-heading" style={{
+          backgroundColor: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '0.75rem',
+          padding: '1.25rem 1.5rem',
+          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <h2 id="samples-heading" style={{
+              fontSize: '1.05rem',
+              fontWeight: 700,
+              color: '#334155',
+              margin: 0
+            }}>
+              Don't have an agenda handy? Test with authentic California fixtures (Optional)
+            </h2>
+            <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', padding: '0.2rem 0.5rem', borderRadius: '9999px', fontWeight: 600 }}>
+              Repository Demo Fixtures
+            </span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 1rem 0' }}>
+            These authentic California municipal agendas from the repository test suite are provided for quick reviewer evaluation and automated reproducibility. Visitors are encouraged to upload their own agendas above.
+          </p>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1rem'
+          }}>
+            {samples.map((sample) => (
+              <div
+                key={sample.id}
+                style={{
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '0.5rem',
+                  padding: '1rem',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem', marginBottom: '0.2rem' }}>
+                    {sample.title}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                    {sample.jurisdiction} &bull; {sample.date} ({sample.pages} pages)
+                  </div>
+                  <p style={{ fontSize: '0.82rem', color: '#334155', margin: '0 0 1rem 0', lineHeight: 1.45 }}>
+                    {sample.highlight}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    onClick={() => handleAnalyzeSample(sample.id)}
+                    disabled={isAnalyzing}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#1e3a8a',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '0.55rem 0.85rem',
+                      borderRadius: '0.375rem',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                      opacity: isAnalyzing ? (analyzingSampleId === sample.id ? 0.8 : 0.5) : 1
+                    }}
+                  >
+                    {analyzingSampleId === sample.id ? 'Analyzing...' : 'Analyze Sample'}
+                  </button>
+                  <a
+                    href={getApiUrl(`/api/documents/samples/${sample.id}/download`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '0.375rem',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#475569',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      textAlign: 'center'
+                    }}
+                    title="Inspect original authentic government PDF"
+                  >
+                    View PDF
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
 
       {/* Footer */}

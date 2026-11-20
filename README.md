@@ -28,9 +28,9 @@ However, in practice:
 - **Deterministic Python Verification:** Eliminates LLM hallucinations. Every single finding must cite an exact physical PDF page (1 to N) and match page text verbatim. If evidence cannot be verified, it is flagged as `UNCLEAR` and any deadline calculation is withheld.
 - **Transparent Accommodation Deadline Engine:** Computes accommodation request deadlines using deterministic weekday calendar math (skipping weekends), classifies instruction strength (`mandatory`, `recommended_or_qualified`, `informational`, `unclear`), preserves qualifiers (*"if possible"*), and explicitly discloses California municipal holiday closure uncertainty.
 - **Contextual Distinction Defense:** Strictly separates public-comment submission rules (e.g., speaker card deadlines by 3:00 PM) from disability accommodation request timelines.
-- **One-Click Authentic Sample Agendas:** Pre-loaded with authentic, unaltered agendas from Claremont, Berkeley, San José, and Isla Vista so judges and attendees can test instantly without finding a PDF.
+- **User-Upload-First Experience & Optional Test Fixtures:** Visitors can upload any California public meeting agenda PDF (City Council, Board of Supervisors, Planning Commission, School Board, or Special District) to receive a comprehensive participation analysis. Also includes four authentic repository test fixtures from Claremont, Berkeley, San José, and Isla Vista for automated validation and reviewer evaluation without requiring a PDF.
 - **Attendee Action Plan & Export:** Generates practical next steps for attendees with one-click clipboard copying and clean print layouts.
-- **Ephemeral Processing & Zero Retention:** Documents are processed using temporary buffers that are closed and deleted immediately upon request completion. No attendee documents are permanently stored on server disk.
+- **Ephemeral Processing & Resource Cleanup:** Uploaded documents are handled using temporary spooled buffers that are explicitly closed and released in `finally` blocks upon request completion (`await file.close()`). The backend does not maintain a persistent database, disk storage archive, or long-term file repository for attendee uploads.
 
 ---
 
@@ -49,7 +49,7 @@ However, in practice:
 - **AI Engine:** Google Gemini (`gemini-3.8-flash` primary with automatic fallback to `gemini-3.5-flash-lite`) via the official Google Gen AI Python SDK (`google-genai`)
 - **PDF Extraction:** `pdfplumber` + `pypdf` (Ephemeral stream extraction with automatic descriptor cleanup)
 - **Deterministic Verification:** Custom Python substring, whitespace-normalization, and semantic context validator
-- **Testing:** `pytest` + `httpx` + `anyio` (43 automated tests passing)
+- **Testing:** `pytest` + `httpx` + `anyio` (61 automated tests passing)
 
 ```text
 ├── sample_data/                          # Authentic California agendas & manifest
@@ -78,7 +78,7 @@ However, in practice:
 │   │       ├── pdf_extractor.py          # Ephemeral pdfplumber page extraction
 │   │       ├── pdf_validator.py          # Magic bytes, bounds, & encryption validation
 │   │       └── verification_service.py   # Deterministic quote & context verification
-│   ├── tests/                            # 43 automated unit & integration tests
+│   ├── tests/                            # 61 automated unit & integration tests
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
@@ -166,17 +166,19 @@ npm run dev
 
 ## 🧪 Running Automated Tests
 
-Run the complete 43-test test suite:
+Run the complete 61-test test suite:
 
 ```bash
 # In backend directory with .venv active:
 pytest -v
 ```
 
-All 43 tests verify:
+All 61 tests verify:
 - Ephemeral PDF validation, encryption detection, and upload limits
 - Scanned document heuristics and text extraction
 - Contextual Gemini analysis and structured JSON parsing
+- Configurable multi-model fallback chain (`gemini-3.8-flash` primary -> `gemini-3.5-flash-lite` fallback)
+- Environment variable parsing and configuration hardening (CORS origins and fallback models)
 - Exponential backoff recovery for transient API errors
 - Deterministic quotation verification against physical pages
 - Contextual separation of public comments vs disability deadlines
@@ -197,16 +199,16 @@ npm run build
    The application requires a valid Google Gemini API key (`GEMINI_API_KEY`) to perform live contextual information extraction on new PDF agendas.
    - Without an API key, the health endpoint (`/api/health`) reports `api_key_configured: false`.
    - Text extraction (`/api/documents/extract`), sample listing, and PDF downloads remain fully operational without an API key.
-2. **Text-Based Agenda Requirement:**  
-   The system processes text-layer PDF documents. Photocopied or scanned image-only PDFs without an OCR text layer are identified and flagged with a clear user notice (`no_extractable_text`).
+2. **Text-Based Agenda Requirement (OCR Not Currently Implemented):**
+   The system extracts text from PDF text layers using `pdfplumber`. Optical Character Recognition (OCR) for scanned or image-only documents is not currently implemented. Scanned or image-only PDFs without an extractable text layer are automatically detected and flagged with a clear user notice (`no_extractable_text`).
 3. **Attendee Support Guidance, Not Legal Advice:**  
    Deadline calculations are deterministic estimates for attendee planning. Local municipal holiday closures could require requests to be submitted earlier. Calculations do not constitute formal legal compliance determinations.
 
 ---
 
-## 🏛️ Authentic Sample Agendas & Attribution
+## 🏛️ Authentic Test Fixtures & Attribution
 
-MEETING ACCESS includes four authentic, unaltered California public meeting agendas downloaded directly from municipal web portals, cataloged with SHA-256 binary checksums in [`sample_data/MANIFEST.md`](file:///sample_data/MANIFEST.md):
+MEETING ACCESS includes four authentic, unaltered California public meeting agendas downloaded directly from municipal web portals. These documents serve as reproducible repository test fixtures and reviewer demo benchmarks—visitors are not required to select them and can upload any California meeting agenda PDF above. All fixtures are cataloged with SHA-256 binary checksums in [`sample_data/MANIFEST.md`](sample_data/MANIFEST.md):
 
 | Sample Fixture | Agency & Jurisdiction | Meeting Date | Physical Pages | Official Source URL |
 | :--- | :--- | :---: | :---: | :--- |
@@ -226,8 +228,8 @@ MEETING ACCESS includes four authentic, unaltered California public meeting agen
 
 ---
 
-## ⚖️ License Decision & Acknowledgements
+## ⚖️ License & Acknowledgements
+
+MEETING ACCESS is released under the **[MIT License](LICENSE)**. Copyright (c) 2026 vardhan-kadali.
 
 Created for **Bridge The Gap Hacks 2026**. Dedicated to advancing civic accessibility and public participation for disabled Californians under the Americans with Disabilities Act of 1990 and the Ralph M. Brown Act.
-
-*Note: A formal open-source license decision (e.g., MIT License, Apache 2.0) is pending final publication review.*
