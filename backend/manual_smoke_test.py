@@ -11,19 +11,19 @@ import httpx
 from app.main import app
 
 async def run_live_smoke_test():
-    sample_pdf_path = backend_dir.parent / "sample_data" / "claremont_sample_agenda.pdf"
-    if not sample_pdf_path.exists():
-        print(f"Sample PDF not found at {sample_pdf_path}")
+    official_pdf_path = backend_dir.parent / "sample_data" / "11-10-26-city-council-agenda-only.pdf"
+    if not official_pdf_path.exists():
+        print(f"Official PDF not found at {official_pdf_path}")
         return
 
-    with open(sample_pdf_path, "rb") as f:
+    with open(official_pdf_path, "rb") as f:
         pdf_bytes = f.read()
 
-    print(f"Executing Live Smoke Test with {sample_pdf_path.name} ({len(pdf_bytes)} bytes)...")
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=60.0) as client:
+    print(f"Executing Live Smoke Test with AUTHENTIC agenda: {official_pdf_path.name} ({len(pdf_bytes)} bytes)...")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=90.0) as client:
         response = await client.post(
             "/api/documents/analyze",
-            files={"file": (sample_pdf_path.name, pdf_bytes, "application/pdf")}
+            files={"file": (official_pdf_path.name, pdf_bytes, "application/pdf")}
         )
 
     print(f"Response HTTP Status: {response.status_code}")

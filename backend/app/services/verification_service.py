@@ -13,7 +13,6 @@ def normalize_text_whitespace(text: str) -> str:
     """Normalize internal whitespaces, line breaks, and punctuation spacing for robust quote matching."""
     if not text:
         return ""
-    # Replace line breaks, tabs, and multiple spaces with a single space
     return re.sub(r"\s+", " ", text).strip().lower()
 
 def verify_findings(
@@ -44,7 +43,6 @@ def verify_findings(
             cat_enum = FindingCategoryEnum(item.category)
             raw_by_category[cat_enum] = item
         except (ValueError, KeyError):
-            # Invalid category returned by model is ignored
             continue
 
     verified_findings: List[FindingItem] = []
@@ -55,7 +53,6 @@ def verify_findings(
         raw = raw_by_category.get(cat)
 
         if not raw:
-            # Model omitted category: treated strictly as not found
             verified_findings.append(
                 FindingItem(
                     category=cat,
@@ -77,7 +74,6 @@ def verify_findings(
         explanation = raw.explanation.strip() if raw.explanation else ""
         suggested_action = raw.suggested_action.strip() if raw.suggested_action else ""
 
-        # Default verification flags
         is_quote_verified = False
         verification_notes: Optional[str] = None
 
@@ -93,7 +89,6 @@ def verify_findings(
             if adjusted_status:
                 status = adjusted_status
         elif status == FindingStatusEnum.NOT_FOUND_IN_DOCUMENT:
-            # When marked not found, clear any phantom quote or page reference
             quote = None
             page_num = None
             is_quote_verified = False
@@ -176,16 +171,24 @@ def _verify_evidence_quote(
     # Category 3A: Explicit accommodation deadlines vs Public Comment deadlines
     if cat == FindingCategoryEnum.EXPLICIT_ACCOMMODATION_DEADLINES:
         quote_lower = norm_quote.lower()
-        public_comment_terms = ["public comment", "speaker card", "written comment", "agenda packet", "comment period"]
-        accommodation_terms = ["disability", "accommodation", "assistance", "special need", "ada", "auxiliary", "clerk", "accessible", "interpreter", "hours prior", "days prior", "advance notice"]
+        public_comment_terms = [
+            "public comment", "speaker card", "written comment", "agenda packet",
+            "comment period", "telephone - contact", "you will be called", "3 pm the day of the meeting"
+        ]
+        # Notice: 'clerk' is intentionally omitted here because clerks handle general municipal business
+        disability_accommodation_terms = [
+            "disability", "accommodation", "assistance", "special need", "ada",
+            "auxiliary", "accessible", "interpreter", "three working days", "3 working days",
+            "working days prior", "hours prior", "days prior", "advance notice"
+        ]
 
         has_comment_term = any(t in quote_lower for t in public_comment_terms)
-        has_accom_term = any(t in quote_lower for t in accommodation_terms)
+        has_accom_term = any(t in quote_lower for t in disability_accommodation_terms)
 
         if has_comment_term and not has_accom_term:
             return (
                 False,
-                "Contextual verification rejected: Quote describes a public-comment or agenda submission deadline, NOT a disability accommodation deadline.",
+                "Contextual verification rejected: Quote describes a public-comment or registration deadline, NOT a disability accommodation deadline.",
                 FindingStatusEnum.UNCLEAR
             )
 

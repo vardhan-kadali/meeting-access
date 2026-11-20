@@ -27,9 +27,9 @@ SYSTEM_PROMPT = """You are an objective public-meeting participation auditor ana
 
 YOUR TASK:
 Analyze the provided meeting agenda page by page and extract participation, disability accommodation, and accessibility information across exactly 9 categories:
-1. disability_accommodation_contact: Designated person, office, email, phone number, or TTY/TDD for requesting accommodations.
+1. disability_accommodation_contact: Designated person, office, email, voice phone numbers, and TTY/TDD numbers for requesting accommodations.
 2. accommodation_request_methods: Procedures and instructions on how to submit a request.
-3. explicit_accommodation_deadlines: Specific advance notice timeframes required to request accommodations (e.g., 72 hours, 3 working days).
+3. explicit_accommodation_deadlines: Specific advance notice timeframes required to request accommodations (e.g., three working days, 72 hours).
 4. alternative_document_formats: Information on obtaining the agenda in large print, braille, or electronic formats.
 5. asl_sign_language_interpretation: Requests and notice timelines specifically for American Sign Language (ASL) or certified deaf interpreters.
 6. live_captioning: Closed captioning, automated captions, or live CART services.
@@ -37,12 +37,14 @@ Analyze the provided meeting agenda page by page and extract participation, disa
 8. remote_participation_instructions: Instructions for attending remotely via teleconference, Zoom/Teams, or dial-in.
 9. public_comment_instructions: Rules, time limits, and deadlines for submitting public comments.
 
-CRITICAL DISCRIMINATION RULES:
+CRITICAL DISCRIMINATION & QUALIFICATION RULES:
+- QUALIFIED DEADLINES: If an accommodation timeline contains a qualifier such as "if possible" or "recommended" (e.g., "at least three (3) working days prior to the meeting, if possible"), you MUST preserve this qualifier in your quote and explanation. NEVER mischaracterize a qualified timeline as a rigid or unconditional cutoff.
 - DO NOT confuse disability accommodation deadlines with public comment deadlines. (e.g., "submit written comments by 3:00 PM" is public_comment_instructions, NOT explicit_accommodation_deadlines).
-- DO NOT confuse ASL/sign-language interpreter requests with general ADA accommodation requests. If an agenda states "contact clerk 72 hours prior for disability accommodations" without mentioning ASL, mark asl_sign_language_interpretation as "not_found_in_document" or "unclear", NOT "found".
+- DO NOT confuse ASL/sign-language interpreter requests with general ADA accommodation requests. If an agenda states "contact clerk for disability accommodations" without mentioning ASL, mark asl_sign_language_interpretation as "not_found_in_document" or "unclear", NOT "found".
 - DO NOT confuse general foreign-language translation with disability accommodations.
 - DO NOT confuse remote viewing instructions with accessibility accommodations.
 - If information on a category is not present in the document, mark its status as "not_found_in_document". Never invent or assume facts.
+- Include all contact modalities (voice phones, TTY/TDD numbers, emails) exactly as printed in the text.
 
 STATUS VALUES:
 - "found": Explicit, unambiguous evidence exists in the document.
@@ -151,7 +153,7 @@ def analyze_document_content(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Gemini API gateway error: {str(api_err)}"
             )
-        except Exception as exc:
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An unexpected error occurred during AI analysis."
