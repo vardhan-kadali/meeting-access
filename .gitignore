@@ -1,0 +1,41 @@
+# Environments & Dependencies
+.venv/
+venv/
+env/
+node_modules/
+.pnp
+.pnp.js
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python Cache & Testing
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build Outputs
+dist/
+build/
+.vite/
+
+# Uploaded Files & Generated Reports
+uploads/
+reports/
+temp/
+*.pdf
+!sample_data/*.pdf
+
+# IDE & OS Artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
