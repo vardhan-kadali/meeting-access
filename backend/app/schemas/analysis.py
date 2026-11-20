@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
+from app.schemas.deadline import DeadlineInterpretation
 
 class FindingCategoryEnum(str, Enum):
     DISABILITY_ACCOMMODATION_CONTACT = "disability_accommodation_contact"
@@ -90,3 +91,7 @@ class DocumentAnalysisResponse(BaseModel):
     missing_evidence_count: int
     unclear_evidence_count: int
     ocr_warning: Optional[str] = None
+    deadline_interpretation: Optional[DeadlineInterpretation] = Field(
+        None,
+        description="Transparent interpretation of verified accommodation request deadline"
+    )

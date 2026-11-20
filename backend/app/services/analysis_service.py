@@ -20,6 +20,7 @@ from app.schemas.analysis import (
     CATEGORY_METADATA,
 )
 from app.services.verification_service import verify_findings
+from app.services.deadline_service import interpret_accommodation_deadline
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,8 @@ def analyze_document_content(
     ocr_warning: Optional[str] = None
 ) -> DocumentAnalysisResponse:
     """
-    Executes Gemini AI analysis with exponential retry and deterministic Python verification.
+    Executes Gemini AI analysis with exponential retry, deterministic Python verification,
+    and transparent accommodation deadline interpretation.
     """
     # 1. Check API Key
     api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
@@ -189,6 +191,16 @@ def analyze_document_content(
     unclear_count = sum(1 for f in verified_findings if f.status == FindingStatusEnum.UNCLEAR or (f.status == FindingStatusEnum.FOUND and not f.is_quote_verified))
     missing_count = sum(1 for f in verified_findings if f.status == FindingStatusEnum.NOT_FOUND_IN_DOCUMENT)
 
+    # 7. Execute Transparent Accommodation Deadline Interpretation
+    deadline_finding = next(
+        (f for f in verified_findings if f.category == FindingCategoryEnum.EXPLICIT_ACCOMMODATION_DEADLINES),
+        None
+    )
+    deadline_interp = interpret_accommodation_deadline(
+        deadline_finding=deadline_finding,
+        extracted_pages=extracted_pages
+    )
+
     return DocumentAnalysisResponse(
         filename=filename,
         total_pages=total_pages,
@@ -200,4 +212,5 @@ def analyze_document_content(
         missing_evidence_count=missing_count,
         unclear_evidence_count=unclear_count,
         ocr_warning=ocr_warning,
+        deadline_interpretation=deadline_interp,
     )

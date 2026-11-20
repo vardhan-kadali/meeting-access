@@ -36,6 +36,28 @@ async def run_live_smoke_test():
         print(f"Verified Evidence Items: {data['verified_evidence_count']}")
         print(f"Unclear Items: {data['unclear_evidence_count']}")
         print(f"Missing Items: {data['missing_evidence_count']}")
+
+        print("\n--- DEADLINE INTERPRETATION (MILESTONE 4) ---")
+        deadline = data.get("deadline_interpretation")
+        if deadline:
+            print(f"Original Instruction (P.{deadline['page_number']}): \"{deadline['original_instruction']}\"")
+            print(f"Instruction Strength: {deadline['instruction_strength'].upper()}")
+            print(f"Qualifier Text: {deadline['qualifier_text']}")
+            print(f"Target Event: {deadline['target_event']}")
+            print(f"Meeting Date: {deadline['meeting_date_str']} (Time: {deadline['meeting_time_str']})")
+            print(f"Is Past Meeting: {deadline['is_past_meeting']}")
+            print(f"Calculated Date: {deadline['calculated_date']}")
+            print(f"Calculation Status: {deadline['calculation_status'].upper()}")
+            print(f"Assumptions:")
+            for a in deadline['assumptions']:
+                print(f"  - {a}")
+            print(f"Disclosed Limitations & Holiday Uncertainty:")
+            for lim in deadline['limitations']:
+                print(f"  - {lim}")
+            print(f"Explanation: {deadline['explanation']}")
+        else:
+            print("No deadline interpretation returned.")
+
         print("\n--- DETAILED CATEGORY FINDINGS ---")
         for finding in data["findings"]:
             v_badge = "VERIFIED" if finding["is_quote_verified"] else "UNVERIFIED"

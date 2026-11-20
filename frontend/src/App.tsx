@@ -24,6 +24,26 @@ interface FindingItem {
   suggested_action: string
 }
 
+interface DeadlineInterpretation {
+  original_instruction: string
+  page_number: number
+  is_verified: boolean
+  instruction_strength: 'mandatory' | 'recommended_or_qualified' | 'informational' | 'unclear'
+  qualifier_text?: string | null
+  target_event: string
+  meeting_date_str?: string | null
+  meeting_time_str?: string | null
+  is_past_meeting: boolean
+  days_offset?: number | null
+  offset_unit?: string | null
+  calculated_date?: string | null
+  calculated_time?: string | null
+  calculation_status: 'calculated' | 'provisional' | 'cannot_calculate'
+  assumptions: string[]
+  limitations: string[]
+  explanation: string
+}
+
 interface DocumentAnalysisResponse {
   filename: string
   total_pages: number
@@ -35,6 +55,7 @@ interface DocumentAnalysisResponse {
   missing_evidence_count: number
   unclear_evidence_count: number
   ocr_warning?: string | null
+  deadline_interpretation?: DeadlineInterpretation | null
 }
 
 export default function App() {
@@ -189,6 +210,8 @@ export default function App() {
       })
     : []
 
+  const deadline = analysisResult?.deadline_interpretation
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -223,7 +246,7 @@ export default function App() {
         }}>
           <span>Civic Accessibility Intelligence</span>
           <span>&bull;</span>
-          <span>Milestone 3: Evidence Analysis</span>
+          <span>Milestone 4: Deadline Engine</span>
         </div>
 
         <h1 style={{
@@ -258,7 +281,7 @@ export default function App() {
           }}>
             <span>API: <strong>Active</strong></span>
             <span>Model: <strong>{health.configured_gemini_model}</strong></span>
-            <span>Key: <strong>{health.api_key_configured ? 'Verified' : 'Pending'}</strong></span>
+            <span>Engine: <strong>Deterministic Verification + Deadline Calculator</strong></span>
           </div>
         )}
       </header>
@@ -271,7 +294,7 @@ export default function App() {
         flexDirection: 'column',
         gap: '1.5rem'
       }}>
-        {/* Document Ingestion & Analysis Card */}
+        {/* Document Ingestion Card */}
         <section aria-labelledby="upload-heading" style={{
           backgroundColor: '#ffffff',
           border: '1px solid #e2e8f0',
@@ -349,7 +372,7 @@ export default function App() {
                   {selectedFile.name}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                  {formatFileSize(selectedFile.size)} &bull; Ready for Participation Analysis
+                  {formatFileSize(selectedFile.size)} &bull; Ready for Participation & Deadline Analysis
                 </div>
               </div>
 
@@ -413,7 +436,7 @@ export default function App() {
                 Analyzing Public Meeting Participation Instructions...
               </div>
               <div style={{ fontSize: '0.9rem', color: '#3b82f6' }}>
-                Extracting verbatim evidence, verifying page numbers, and distinguishing accommodation deadlines.
+                Extracting verbatim evidence, verifying page numbers, and calculating deterministic accommodation deadlines.
               </div>
             </div>
           )}
@@ -551,6 +574,249 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* MILESTONE 4: Accommodation Deadline Interpretation Section */}
+            {deadline && (
+              <section aria-labelledby="deadline-heading" style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '0.5rem',
+                padding: '1.5rem',
+                marginBottom: '2rem'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div>
+                    <h3 id="deadline-heading" style={{
+                      fontSize: '1.15rem',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      margin: '0 0 0.25rem 0'
+                    }}>
+                      Accommodation Request Deadline Interpretation
+                    </h3>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      Attendee Support Guidance &bull; Deterministic Calendar Calculation (Not a Legal Verdict)
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {deadline.calculation_status === 'provisional' && (
+                      <span style={{
+                        backgroundColor: '#fef3c7',
+                        color: '#92400e',
+                        border: '1px solid #fcd34d',
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}>
+                        Provisional Calculation
+                      </span>
+                    )}
+                    {deadline.calculation_status === 'calculated' && (
+                      <span style={{
+                        backgroundColor: '#dcfce7',
+                        color: '#166534',
+                        border: '1px solid #86efac',
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}>
+                        Calculated Estimate
+                      </span>
+                    )}
+                    {deadline.calculation_status === 'cannot_calculate' && (
+                      <span style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#475569',
+                        border: '1px solid #cbd5e1',
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}>
+                        Calculation Withheld
+                      </span>
+                    )}
+
+                    {deadline.is_past_meeting && (
+                      <span style={{
+                        backgroundColor: '#fee2e2',
+                        color: '#991b1b',
+                        border: '1px solid #fca5a5',
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}>
+                        Past Meeting
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verified Instruction Quote Callout */}
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.375rem',
+                  padding: '1rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.8rem',
+                    color: '#64748b',
+                    marginBottom: '0.35rem'
+                  }}>
+                    <span><strong>Original Verified Instruction</strong> (Page {deadline.page_number})</span>
+                    <span>
+                      Strength: <strong style={{
+                        color: deadline.instruction_strength === 'recommended_or_qualified' ? '#b45309' : '#0f172a'
+                      }}>
+                        {deadline.instruction_strength === 'recommended_or_qualified'
+                          ? 'Recommended / Qualified'
+                          : deadline.instruction_strength.toUpperCase()}
+                      </strong>
+                    </span>
+                  </div>
+                  <blockquote style={{
+                    margin: 0,
+                    fontStyle: 'italic',
+                    color: '#1e293b',
+                    fontSize: '0.95rem',
+                    lineHeight: 1.5
+                  }}>
+                    "{deadline.original_instruction}"
+                  </blockquote>
+
+                  {deadline.qualifier_text && (
+                    <div style={{
+                      marginTop: '0.5rem',
+                      fontSize: '0.85rem',
+                      color: '#92400e',
+                      backgroundColor: '#fffbeb',
+                      padding: '0.4rem 0.65rem',
+                      borderRadius: '0.25rem'
+                    }}>
+                      <strong>Preserved Qualifier:</strong> "{deadline.qualifier_text}" &bull; Wording indicates an advisory advance request, not an unconditional legal cutoff.
+                    </div>
+                  )}
+                </div>
+
+                {/* Calculation Result Panel */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '1rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '0.375rem',
+                    padding: '1rem'
+                  }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                      Target Event & Scheduled Date
+                    </div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', marginTop: '0.25rem' }}>
+                      {deadline.meeting_date_str || 'Date Not Established'}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      {deadline.meeting_time_str ? `Meeting Time: ${deadline.meeting_time_str}` : 'Time not specified'}
+                      {deadline.is_past_meeting && ' (Already Occurred)'}
+                    </div>
+                  </div>
+
+                  <div style={{
+                    backgroundColor: deadline.calculated_date ? '#f0fdf4' : '#f8fafc',
+                    border: deadline.calculated_date ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                    borderRadius: '0.375rem',
+                    padding: '1rem'
+                  }}>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      color: deadline.calculated_date ? '#166534' : '#64748b',
+                      textTransform: 'uppercase'
+                    }}>
+                      Estimated Request Deadline
+                    </div>
+                    <div style={{
+                      fontSize: '1.25rem',
+                      fontWeight: 800,
+                      color: deadline.calculated_date ? '#15803d' : '#475569',
+                      marginTop: '0.25rem'
+                    }}>
+                      {deadline.calculated_date ? deadline.calculated_date : 'Calculation Withheld'}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: deadline.calculated_date ? '#166534' : '#64748b' }}>
+                      {deadline.offset_unit === 'working_days' && `${deadline.days_offset} working days prior (weekday subtraction)`}
+                      {deadline.offset_unit === 'hours' && `${deadline.days_offset} hours prior ${deadline.calculated_time ? `at ${deadline.calculated_time}` : ''}`}
+                      {deadline.offset_unit === 'ambiguous_days' && 'Ambiguous day rule; withheld'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Assumptions & Limitations Callouts */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '1rem',
+                  fontSize: '0.85rem'
+                }}>
+                  {deadline.assumptions.length > 0 && (
+                    <div style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '0.375rem',
+                      padding: '0.85rem'
+                    }}>
+                      <strong style={{ color: '#0f172a', display: 'block', marginBottom: '0.35rem' }}>
+                        Calculation Assumptions:
+                      </strong>
+                      <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#334155', lineHeight: 1.5 }}>
+                        {deadline.assumptions.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {deadline.limitations.length > 0 && (
+                    <div style={{
+                      backgroundColor: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      borderRadius: '0.375rem',
+                      padding: '0.85rem'
+                    }}>
+                      <strong style={{ color: '#92400e', display: 'block', marginBottom: '0.35rem' }}>
+                        Disclosed Limitations & Holiday Uncertainty:
+                      </strong>
+                      <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#92400e', lineHeight: 1.5 }}>
+                        {deadline.limitations.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* Filter Tabs */}
             <div style={{
