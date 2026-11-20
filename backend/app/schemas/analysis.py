@@ -95,3 +95,12 @@ class DocumentAnalysisResponse(BaseModel):
         None,
         description="Transparent interpretation of verified accommodation request deadline"
     )
+
+class SampleAgendaItem(BaseModel):
+    id: str
+    title: str
+    jurisdiction: str
+    date: str
+    pages: int
+    filename: str
+    highlight: str

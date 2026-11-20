@@ -256,3 +256,67 @@ async def test_prompt_injection_defense():
     # Verification MUST fail because the fabricated quote is not in the text
     assert contact_finding.is_quote_verified is False
     assert "could not be located" in contact_finding.verification_notes
+
+
+@pytest.mark.anyio
+async def test_list_sample_agendas():
+    """GET /api/documents/samples returns 4 authentic California agendas."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/documents/samples")
+        assert resp.status_code == 200
+        samples = resp.json()
+        assert len(samples) == 4
+        sample_ids = [s["id"] for s in samples]
+        assert "claremont" in sample_ids
+        assert "berkeley" in sample_ids
+        assert "sanjose" in sample_ids
+        assert "islavista" in sample_ids
+
+
+@pytest.mark.anyio
+async def test_download_sample_agenda_success_and_404():
+    """GET /api/documents/samples/{id}/download serves valid PDF bytes or 404."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/documents/samples/claremont/download")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/pdf"
+        assert len(resp.content) > 1000
+
+        resp404 = await client.get("/api/documents/samples/nonexistent/download")
+        assert resp404.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_analyze_sample_agenda_endpoint():
+    """POST /api/documents/samples/claremont/analyze runs full pipeline with mock."""
+    mock_payload = {
+        "findings": [
+            {
+                "category": FindingCategoryEnum.EXPLICIT_ACCOMMODATION_DEADLINES.value,
+                "status": FindingStatusEnum.FOUND.value,
+                "quote": "AT LEAST THREE (3) WORKING DAYS PRIOR TO THE MEETING, IF POSSIBLE.",
+                "page_number": 6,
+                "explanation": "Authentic Claremont qualified deadline.",
+                "suggested_action": "Request 3 working days prior if possible."
+            }
+        ]
+    }
+    mock_gen_response = MagicMock()
+    mock_gen_response.text = json.dumps(mock_payload)
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_gen_response
+
+    with patch("google.genai.Client", return_value=mock_client):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/api/documents/samples/claremont/analyze")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["filename"] == "11-10-26-city-council-agenda-only.pdf"
+            assert data["total_pages"] == 6
+            assert data["deadline_interpretation"] is not None
+            assert data["deadline_interpretation"]["calculated_date"] == "November 05, 2026"
+
