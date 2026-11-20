@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import List
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
@@ -10,7 +11,41 @@ from app.services.analysis_service import analyze_document_content
 
 router = APIRouter(prefix="/api/documents", tags=["analysis"])
 
-SAMPLE_DATA_DIR = Path(__file__).resolve().parents[3] / "sample_data"
+
+def _resolve_sample_data_dir() -> Path:
+    """
+    Robustly locates the sample_data directory across local development,
+    pytest execution, and Render cloud container runtimes.
+    """
+    # 1. Explicit environment variable
+    if os.environ.get("SAMPLE_DATA_DIR"):
+        candidate = Path(os.environ["SAMPLE_DATA_DIR"]).resolve()
+        if candidate.exists():
+            return candidate
+
+    # 2. Standard monorepo layout (4 levels up from this file)
+    candidate = Path(__file__).resolve().parents[3] / "sample_data"
+    if candidate.exists():
+        return candidate
+
+    # 3. Current working directory or parent (e.g. root vs backend)
+    cwd_candidate = Path.cwd() / "sample_data"
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    parent_candidate = Path.cwd().parent / "sample_data"
+    if parent_candidate.exists():
+        return parent_candidate
+
+    # 4. Fallback: 3 levels up
+    fallback = Path(__file__).resolve().parents[2] / "sample_data"
+    if fallback.exists():
+        return fallback
+
+    return candidate
+
+
+SAMPLE_DATA_DIR = _resolve_sample_data_dir()
 
 SAMPLE_AGENDAS = {
     "claremont": SampleAgendaItem(
@@ -69,7 +104,9 @@ async def list_sample_agendas() -> List[SampleAgendaItem]:
     description="Runs the full extraction, AI analysis, quote verification, and deadline interpretation on a sample agenda."
 )
 async def analyze_sample_agenda(sample_id: str) -> DocumentAnalysisResponse:
-    sample = SAMPLE_AGENDAS.get(sample_id.lower())
+    # Whitelist defense: sample_id must match known pre-loaded key
+    clean_id = sample_id.lower().strip()
+    sample = SAMPLE_AGENDAS.get(clean_id)
     if not sample:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -94,7 +131,7 @@ async def analyze_sample_agenda(sample_id: str) -> DocumentAnalysisResponse:
         max_pages=settings.MAX_PAGE_COUNT,
     )
 
-    # 2. Extract pages and calculate text density in memory
+    # 2. Extract pages and calculate text density
     extraction = extract_pdf_pages_in_memory(
         file_bytes=file_bytes,
         filename=sample.filename
@@ -117,7 +154,9 @@ async def analyze_sample_agenda(sample_id: str) -> DocumentAnalysisResponse:
     description="Serves the exact binary bytes of the official government PDF."
 )
 async def download_sample_agenda(sample_id: str):
-    sample = SAMPLE_AGENDAS.get(sample_id.lower())
+    # Whitelist defense: sample_id must match known pre-loaded key
+    clean_id = sample_id.lower().strip()
+    sample = SAMPLE_AGENDAS.get(clean_id)
     if not sample:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -142,7 +181,7 @@ async def download_sample_agenda(sample_id: str):
     "/analyze",
     response_model=DocumentAnalysisResponse,
     summary="Analyze PDF agenda for participation readiness",
-    description="Extracts and analyzes participation, accommodation, and accessibility instructions with deterministic quote verification."
+    description="Extracts and analyzes participation, accommodation, and accessibility instructions with deterministic quote verification. Uses ephemeral spooled temporary resources that are released immediately upon completion."
 )
 async def analyze_document(
     file: UploadFile = File(..., description="PDF meeting agenda to analyze")
@@ -167,7 +206,7 @@ async def analyze_document(
             max_pages=settings.MAX_PAGE_COUNT,
         )
 
-        # 2. Extract pages and calculate text density in memory
+        # 2. Extract pages and calculate text density
         extraction = extract_pdf_pages_in_memory(
             file_bytes=file_bytes,
             filename=filename
@@ -190,5 +229,5 @@ async def analyze_document(
         return analysis_result
 
     finally:
-        # Guarantee release of spooled temporary file descriptors
+        # Guarantee immediate release and deletion of any spooled temporary file descriptors
         await file.close()

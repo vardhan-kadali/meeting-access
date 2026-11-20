@@ -1,5 +1,7 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
@@ -12,6 +14,20 @@ class Settings(BaseSettings):
     # PDF Processing Limits
     MAX_UPLOAD_SIZE_MB: int = 15
     MAX_PAGE_COUNT: int = 100
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [orig.strip() for orig in v.split(",") if orig.strip()]
+        return v
 
     model_config = SettingsConfigDict(
         env_file=".env",

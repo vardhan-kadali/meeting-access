@@ -40,7 +40,7 @@
 ### Step 2: The Core Case Study — City of Claremont City Council
 1. Click **"Analyze Sample"** on the **City of Claremont** card (`11-10-26-city-council-agenda-only.pdf`).
 2. Watch the **Multi-Stage Processing Indicator**:
-   - *Stage 1:* In-memory PDF extraction & text density check.
+   - *Stage 1:* Ephemeral PDF extraction & text density check.
    - *Stage 2:* Contextual Gemini extraction across 9 participation categories.
    - *Stage 3:* Deterministic physical page quotation verification.
    - *Stage 4:* Transparent deadline interpretation & holiday disclosure.
@@ -84,7 +84,7 @@
 > - **Backend:** Python 3.11 + FastAPI + Pydantic v2 schemas.
 > - **AI Extraction:** Google Gemini (`gemini-3.8-flash`) via the official Google Gen AI Python SDK.
 > - **Verification Engine:** Pure Python deterministic substring & normalization validator running in memory.
-> - **Zero Storage Footprint:** Ephemeral memory-only stream processing; no permanent attendee documents retained.
+> - **Zero Permanent Storage:** Ephemeral document processing; temporary spooled files are deleted immediately on completion with zero permanent attendee document retention.
 > - **Test Suite:** 43 automated unit and integration tests passing in pytest with zero failures."*
 
 ---

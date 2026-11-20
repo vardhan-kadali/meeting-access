@@ -13,10 +13,15 @@ app = FastAPI(
 )
 
 # Configure CORS
+# When '*' is configured in origins, credentials cannot be enabled per CORS specification.
+cors_origins = settings.CORS_ORIGINS
+allow_all = "*" in cors_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"^https://.*\.pages\.dev$",
+    allow_credentials=not allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -29,7 +34,7 @@ app.include_router(analysis_router)
 async def health_check():
     """
     Health check endpoint returning service status, model configuration,
-    and Python environment verification.
+    and Python environment verification. Polled by Render and Cloudflare during deployments.
     """
     return {
         "status": "healthy",

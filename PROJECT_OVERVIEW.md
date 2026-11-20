@@ -102,8 +102,8 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
   ├── /api/documents/samples/{id}/download (Direct official government PDF download)
   └── /api/documents/analyze               (Custom PDF upload & analysis)
          │
-  ├── 1. PDF Validator & Memory Extractor (`pypdf`, `pdfplumber`)
-  │      • Ephemeral in-memory bytes processing (0 permanent storage)
+  ├── 1. PDF Validator & Extractor (`pypdf`, `pdfplumber`)
+  │      • Ephemeral processing (0 permanent storage; temporary spooled resources deleted immediately)
   │      • Text density & scanned document heuristic checks
   │
   ├── 2. Google Gen AI SDK (`gemini-3.8-flash`)
@@ -123,9 +123,9 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
 
 ---
 
-## 5. Security, Privacy & In-Memory Stream Processing
+## 5. Security, Privacy & Ephemeral Document Processing
 
-- **Zero Storage Footprint:** Uploaded documents are read into memory streams, processed, and immediately garbage collected. No user PDFs are written to permanent server disk.
+- **Zero Permanent Storage Footprint:** Uploaded agendas are handled via Starlette's `UploadFile` spooled temporary buffers. Small buffers remain in memory while larger payloads safely roll over to OS temporary files. In all cases, file descriptors and temporary resources are explicitly closed and deleted in `finally` blocks (`await file.close()`) immediately upon request completion. No user documents or attendee data are permanently written or retained on server disk.
 - **Key Isolation:** Google Gemini API keys exist exclusively in server environment variables (`GEMINI_API_KEY`) and are never exposed to the client.
 - **Prompt Injection Defense:** Untrusted document text is wrapped in defensive boundary tags (`<untrusted_agenda_content>`) with strict instructions to the model to ignore any embedded system directives.
 - **Deterministic Python Enforcement:** Even if an adversarial prompt injection succeeded in convincing the model to fabricate a finding, the pure Python verification engine would reject it because the fabricated text cannot be located on the physical page.

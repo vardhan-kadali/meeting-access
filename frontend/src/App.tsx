@@ -68,6 +68,9 @@ interface DocumentAnalysisResponse {
   deadline_interpretation?: DeadlineInterpretation | null
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+const getApiUrl = (path: string): string => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [samples, setSamples] = useState<SampleAgendaItem[]>([])
@@ -85,7 +88,7 @@ export default function App() {
 
   useEffect(() => {
     // Health check
-    fetch('/api/health')
+    fetch(getApiUrl('/api/health'))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setHealth(data)
@@ -93,7 +96,7 @@ export default function App() {
       .catch(() => {})
 
     // Preloaded authentic sample agendas
-    fetch('/api/documents/samples')
+    fetch(getApiUrl('/api/documents/samples'))
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) setSamples(data)
@@ -171,7 +174,7 @@ export default function App() {
     formData.append('file', selectedFile)
 
     try {
-      const response = await fetch('/api/documents/analyze', {
+      const response = await fetch(getApiUrl('/api/documents/analyze'), {
         method: 'POST',
         body: formData,
       })
@@ -201,7 +204,7 @@ export default function App() {
     setSelectedFile(null)
 
     try {
-      const response = await fetch(`/api/documents/samples/${sampleId}/analyze`, {
+      const response = await fetch(getApiUrl(`/api/documents/samples/${sampleId}/analyze`), {
         method: 'POST',
       })
 
@@ -428,14 +431,14 @@ export default function App() {
 
         {/* Clear Boundaries & What This Is NOT */}
         <div style={{
-          maxWidth: '820px',
+          maxWidth: '860px',
           margin: '0 auto',
           backgroundColor: '#eff6ff',
           border: '1px solid #bfdbfe',
           borderRadius: '0.5rem',
           padding: '0.75rem 1.25rem',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
           gap: '0.75rem',
           textAlign: 'left',
           fontSize: '0.82rem',
@@ -446,6 +449,9 @@ export default function App() {
           </div>
           <div>
             <strong>🔍 100% Quote Verified:</strong> Every finding is strictly verified against physical PDF pages. Zero hallucinated contacts or deadlines.
+          </div>
+          <div>
+            <strong>🔒 Ephemeral Processing:</strong> Documents are processed using temporary buffers that are closed and deleted immediately. Zero permanent file retention.
           </div>
         </div>
 
@@ -553,7 +559,7 @@ export default function App() {
                     {isAnalyzing ? 'Analyzing...' : 'Analyze Sample'}
                   </button>
                   <a
-                    href={`/api/documents/samples/${sample.id}/download`}
+                    href={getApiUrl(`/api/documents/samples/${sample.id}/download`)}
                     target="_blank"
                     rel="noreferrer"
                     style={{
@@ -633,7 +639,7 @@ export default function App() {
               Click to select or drag and drop agenda PDF
             </div>
             <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
-              In-memory stream processing &bull; Zero permanent file retention
+              Ephemeral processing &bull; Temporary spooled resources cleared immediately &bull; Zero permanent retention
             </div>
           </div>
 
@@ -727,7 +733,7 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', textAlign: 'left', fontSize: '0.88rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: activeStage >= 1 ? '#1e40af' : '#94a3b8' }}>
                   <span>{activeStage > 1 ? '✅' : '⏳'}</span>
-                  <span><strong>Stage 1:</strong> In-memory PDF extraction & physical page text density check</span>
+                  <span><strong>Stage 1:</strong> Ephemeral PDF extraction & physical page text density check</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: activeStage >= 2 ? '#1e40af' : '#94a3b8' }}>
                   <span>{activeStage > 2 ? '✅' : activeStage === 2 ? '⏳' : '⚪'}</span>

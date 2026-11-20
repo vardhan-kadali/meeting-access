@@ -14,7 +14,7 @@ An evidence-backed civic accessibility intelligence platform for California publ
 - **Contextual Distinction Defense:** Strictly separates public-comment submission rules (e.g., speaker card deadlines by 3:00 PM) from disability accommodation request timelines.
 - **One-Click Authentic Sample Agendas:** Pre-loaded with authentic, unaltered agendas from Claremont, Berkeley, San José, and Isla Vista so judges and attendees can test instantly without finding a PDF.
 - **Attendee Action Plan & Export:** Generates practical next steps for attendees with one-click clipboard copying and clean print layouts.
-- **Ephemeral In-Memory Processing:** Memory-only stream extraction; zero permanent document storage on server disk.
+- **Ephemeral Processing & Zero Retention:** Documents are processed using temporary buffers that are closed and deleted immediately upon request completion. No attendee documents are permanently stored on server disk.
 
 ---
 
@@ -31,7 +31,7 @@ An evidence-backed civic accessibility intelligence platform for California publ
 - **Frontend:** React 19 + TypeScript + Vite (High-contrast accessible UI, responsive layouts, ARIA live regions)
 - **Backend:** Python 3.11 + FastAPI + Pydantic v2
 - **AI Engine:** Google Gemini (`gemini-3.8-flash`) via the official Google Gen AI Python SDK (`google-genai`)
-- **PDF Extraction:** `pdfplumber` + `pypdf` (In-memory stream processing)
+- **PDF Extraction:** `pdfplumber` + `pypdf` (Ephemeral stream extraction with automatic descriptor cleanup)
 - **Deterministic Verification:** Custom Python substring, whitespace-normalization, and semantic context validator
 - **Testing:** `pytest` + `httpx` + `anyio` (43 automated tests passing)
 
@@ -58,7 +58,7 @@ An evidence-backed civic accessibility intelligence platform for California publ
 │   │   └── services/
 │   │       ├── analysis_service.py       # Google Gen AI integration & retry handler
 │   │       ├── deadline_service.py       # Transparent deadline calculation engine
-│   │       ├── pdf_extractor.py          # In-memory pdfplumber page extraction
+│   │       ├── pdf_extractor.py          # Ephemeral pdfplumber page extraction
 │   │       ├── pdf_validator.py          # Magic bytes, bounds, & encryption validation
 │   │       └── verification_service.py   # Deterministic quote & context verification
 │   ├── tests/                            # 43 automated unit & integration tests
@@ -125,7 +125,7 @@ pytest -v
 ```
 
 All 43 tests verify:
-- In-memory PDF validation, encryption detection, and upload limits
+- Ephemeral PDF validation, encryption detection, and upload limits
 - Scanned document heuristics and text extraction
 - Contextual Gemini analysis and structured JSON parsing
 - Exponential backoff recovery for transient API errors
