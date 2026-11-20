@@ -213,7 +213,7 @@ async def test_api_analyze_gemini_503_error(monkeypatch):
         MagicMock()
     )
 
-    with patch("google.genai.Client", return_value=mock_client):
+    with patch("google.genai.Client", return_value=mock_client), patch("time.sleep", return_value=None):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
                 "/api/documents/analyze",

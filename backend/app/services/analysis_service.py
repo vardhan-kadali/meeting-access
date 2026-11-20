@@ -2,8 +2,9 @@ import os
 import json
 import time
 import logging
+from enum import Enum
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from google import genai
 from google.genai import types
@@ -78,6 +79,85 @@ Return a JSON object with a single key "findings" containing a list of 9 objects
 }
 """
 
+
+class ErrorCategory(str, Enum):
+    AUTHENTICATION_ERROR = "authentication_error"
+    QUOTA_EXHAUSTED = "quota_exhausted"
+    TRANSIENT_CAPACITY = "transient_capacity"
+    INVALID_MODEL = "invalid_model"
+    CLIENT_ERROR = "client_error"
+    UNEXPECTED = "unexpected"
+
+
+def classify_provider_error(err: Exception) -> Tuple[ErrorCategory, str, int]:
+    """
+    Carefully inspects a Google GenAI SDK exception and classifies it:
+    Returns (category, safe_user_detail, http_status_code).
+    Never exposes internal API keys or secret parameters in the detail message.
+    """
+    err_str = str(err)
+    err_lower = err_str.lower()
+    code = getattr(err, "code", None)
+
+    # 1. Authentication errors (401, 403 API key issues)
+    if code in (401, 403) or any(k in err_lower for k in ["api_key_invalid", "api key not valid", "permission_denied", "forbidden"]):
+        return (
+            ErrorCategory.AUTHENTICATION_ERROR,
+            "Gemini API authentication failed. Please verify your GEMINI_API_KEY.",
+            status.HTTP_401_UNAUTHORIZED
+        )
+
+    # 2. HTTP 429: Distinguish quota/billing exhaustion vs temporary model rate limits
+    if code == 429 or "429" in err_str or "resource_exhausted" in err_lower:
+        quota_billing_keywords = [
+            "quota", "billing", "credit", "spend limit", "spend cap",
+            "exceeded your current quota", "free tier limit", "billing account"
+        ]
+        if any(k in err_lower for k in quota_billing_keywords):
+            return (
+                ErrorCategory.QUOTA_EXHAUSTED,
+                "Gemini API quota or billing limit exceeded for this Google Cloud project. Please check your AI Studio quota and billing settings.",
+                status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        # Temporary model-specific rate limit (e.g. requests per minute limit on this specific model)
+        return (
+            ErrorCategory.TRANSIENT_CAPACITY,
+            "Model is experiencing a temporary rate limit spike.",
+            status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    # 3. Invalid model / Not Found (404)
+    if code == 404 or "not_found" in err_lower or "not found" in err_lower:
+        return (
+            ErrorCategory.INVALID_MODEL,
+            "Configured Gemini model was not found or is unsupported.",
+            status.HTTP_404_NOT_FOUND
+        )
+
+    # 4. HTTP 503 / 500 / 502 / UNAVAILABLE transient capacity errors
+    if isinstance(err, ServerError) or code in (500, 502, 503, 504) or any(k in err_lower for k in ["503", "unavailable", "overloaded", "high demand"]):
+        return (
+            ErrorCategory.TRANSIENT_CAPACITY,
+            "Model is temporarily unavailable due to high demand.",
+            status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    # 5. Other permanent client errors (400)
+    if isinstance(err, ClientError):
+        return (
+            ErrorCategory.CLIENT_ERROR,
+            "Invalid request parameters sent to AI analysis provider.",
+            status.HTTP_400_BAD_REQUEST
+        )
+
+    # 6. Unexpected fallback
+    return (
+        ErrorCategory.UNEXPECTED,
+        "An unexpected error occurred during AI analysis.",
+        status.HTTP_502_BAD_GATEWAY
+    )
+
+
 def analyze_document_content(
     filename: str,
     extracted_pages: List[PageExtractionResult],
@@ -85,8 +165,8 @@ def analyze_document_content(
     ocr_warning: Optional[str] = None
 ) -> DocumentAnalysisResponse:
     """
-    Executes Gemini AI analysis with exponential retry, deterministic Python verification,
-    and transparent accommodation deadline interpretation.
+    Executes Gemini AI analysis with multi-model fallback, exponential retry,
+    deterministic Python verification, and transparent accommodation deadline interpretation.
     """
     # 1. Check API Key
     api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
@@ -113,7 +193,6 @@ def analyze_document_content(
         "Please analyze this California public meeting agenda and return the 9 structured findings in the required JSON format."
     )
 
-    # 3. Call Google Gen AI SDK with automatic backoff retry
     client = genai.Client(api_key=api_key)
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
@@ -121,50 +200,108 @@ def analyze_document_content(
         response_mime_type="application/json"
     )
 
-    raw_response_text = None
-    max_retries = 3
-    retry_delay = 2.0
+    # 3. Configurable Multi-Model Chain Execution
+    models_to_try = settings.model_chain
+    max_retries_per_model = settings.MAX_RETRIES_PER_MODEL
+    initial_retry_delay = settings.RETRY_INITIAL_DELAY
 
-    for attempt in range(1, max_retries + 1):
-        try:
-            logger.info("Calling Gemini model %s (attempt %d/%d)", settings.GEMINI_MODEL, attempt, max_retries)
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=user_prompt,
-                config=config
+    successful_model: Optional[str] = None
+    raw_response_text: Optional[str] = None
+    last_error_message: Optional[str] = None
+    last_error_status: int = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    for model_idx, model_name in enumerate(models_to_try):
+        is_fallback = model_idx > 0
+        if is_fallback:
+            logger.warning(
+                "Fallback activated: attempting model '%s' (model %d/%d in chain)",
+                model_name,
+                model_idx + 1,
+                len(models_to_try)
             )
-            raw_response_text = response.text
-            break
-        except ServerError as s_err:
-            if attempt < max_retries and ("503" in str(s_err) or "429" in str(s_err)):
-                logger.warning("Gemini 503/429 high demand spike on attempt %d. Retrying in %.1fs...", attempt, retry_delay)
-                time.sleep(retry_delay)
-                retry_delay *= 2
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Gemini API model {settings.GEMINI_MODEL} is currently unavailable: {str(s_err)}"
+        else:
+            logger.info("Attempting analysis with primary model '%s'", model_name)
+
+        model_succeeded = False
+        current_retry_delay = initial_retry_delay
+
+        for attempt in range(1, max_retries_per_model + 1):
+            try:
+                logger.info(
+                    "Calling Gemini model '%s' (attempt %d/%d)",
+                    model_name,
+                    attempt,
+                    max_retries_per_model
                 )
-        except ClientError as c_err:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Gemini API client error: {str(c_err)}"
-            )
-        except APIError as api_err:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Gemini API gateway error: {str(api_err)}"
-            )
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An unexpected error occurred during AI analysis."
-            )
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=user_prompt,
+                    config=config
+                )
+                if response and response.text and response.text.strip():
+                    raw_response_text = response.text
+                    successful_model = model_name
+                    model_succeeded = True
+                    logger.info("Document analysis succeeded using model '%s'", successful_model)
+                    break
+                else:
+                    logger.warning("Model '%s' returned empty response on attempt %d", model_name, attempt)
+            except Exception as exc:
+                err_category, err_detail, err_status = classify_provider_error(exc)
+                last_error_message = err_detail
+                last_error_status = err_status
 
-    if not raw_response_text:
+                # Permanent failure cases: DO NOT RETRY, DO NOT FALLBACK
+                if err_category in (ErrorCategory.AUTHENTICATION_ERROR, ErrorCategory.QUOTA_EXHAUSTED, ErrorCategory.CLIENT_ERROR):
+                    logger.error(
+                        "Non-retryable error on model '%s': %s (Category: %s)",
+                        model_name,
+                        err_detail,
+                        err_category.value
+                    )
+                    raise HTTPException(status_code=err_status, detail=err_detail)
+
+                # Invalid model configuration (404): skip remaining retries for this model, try next fallback
+                if err_category == ErrorCategory.INVALID_MODEL:
+                    logger.warning("Model '%s' is not found or unsupported. Skipping to next fallback.", model_name)
+                    break
+
+                # Transient capacity / 503 / temporary rate limit
+                if attempt < max_retries_per_model:
+                    logger.warning(
+                        "Transient failure on model '%s' (attempt %d/%d): %s. Retrying in %.2fs...",
+                        model_name,
+                        attempt,
+                        max_retries_per_model,
+                        err_detail,
+                        current_retry_delay
+                    )
+                    time.sleep(current_retry_delay)
+                    current_retry_delay *= 2
+                else:
+                    logger.warning(
+                        "Model '%s' exhausted all %d retry attempts due to capacity/rate limits.",
+                        model_name,
+                        max_retries_per_model
+                    )
+
+        if model_succeeded:
+            break
+
+    # If all configured models failed
+    if not model_succeeded or not raw_response_text or not successful_model:
+        logger.error(
+            "All %d configured models in fallback chain failed (%s).",
+            len(models_to_try),
+            ", ".join(models_to_try)
+        )
+        final_detail = "All configured AI analysis models are currently unavailable. Please try again in a few moments."
+        if last_error_status != status.HTTP_503_SERVICE_UNAVAILABLE and last_error_message:
+            final_detail = last_error_message
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Empty response returned by AI analysis model."
+            status_code=last_error_status if last_error_status != status.HTTP_500_INTERNAL_SERVER_ERROR else status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=final_detail
         )
 
     # 4. Parse JSON safely
@@ -173,7 +310,7 @@ def analyze_document_content(
         raw_items = parsed_json.get("findings", [])
         raw_findings = [RawFindingItem(**item) for item in raw_items]
     except Exception as parse_err:
-        logger.error("Failed to parse Gemini JSON output: %s", parse_err)
+        logger.error("Failed to parse Gemini JSON output from model '%s': %s", successful_model, parse_err)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="AI model returned an unparseable response structure."
@@ -205,7 +342,7 @@ def analyze_document_content(
         filename=filename,
         total_pages=total_pages,
         extraction_status="text_extracted" if not ocr_warning else "partially_extracted",
-        model_used=settings.GEMINI_MODEL,
+        model_used=successful_model,
         analyzed_at=datetime.now(timezone.utc).isoformat(),
         findings=verified_findings,
         verified_evidence_count=verified_count,

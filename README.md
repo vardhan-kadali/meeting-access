@@ -46,7 +46,7 @@ However, in practice:
 
 - **Frontend:** React 19 + TypeScript + Vite (High-contrast accessible UI, responsive layouts, ARIA live regions)
 - **Backend:** Python 3.11 + FastAPI + Pydantic v2
-- **AI Engine:** Google Gemini (`gemini-3.8-flash`) via the official Google Gen AI Python SDK (`google-genai`)
+- **AI Engine:** Google Gemini (`gemini-3.8-flash` primary with automatic fallback to `gemini-3.5-flash-lite`) via the official Google Gen AI Python SDK (`google-genai`)
 - **PDF Extraction:** `pdfplumber` + `pypdf` (Ephemeral stream extraction with automatic descriptor cleanup)
 - **Deterministic Verification:** Custom Python substring, whitespace-normalization, and semantic context validator
 - **Testing:** `pytest` + `httpx` + `anyio` (43 automated tests passing)
@@ -100,7 +100,8 @@ However, in practice:
 | Variable Name | Default / Example | Required | Description |
 | :--- | :--- | :---: | :--- |
 | `GEMINI_API_KEY` | *(Secret key)* | **Yes** (for live AI) | Google Gemini API key from Google AI Studio. |
-| `GEMINI_MODEL` | `gemini-3.8-flash` | No | Configurable Gemini model identifier. |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | No | Primary candidate Gemini model identifier. |
+| `GEMINI_FALLBACK_MODELS` | `["gemini-3.5-flash-lite"]` | No | Configurable ordered fallback models (comma-separated or JSON list). |
 | `ENVIRONMENT` | `development` | No | Application environment (`development` / `production`). |
 | `PORT` | `8000` | No | Port for Uvicorn server (automatically provided by cloud hosts like Render). |
 | `HOST` | `0.0.0.0` | No | Network host binding. |

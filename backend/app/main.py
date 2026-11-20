@@ -43,6 +43,7 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "python_version": sys.version.split()[0],
         "configured_gemini_model": settings.GEMINI_MODEL,
+        "configured_fallback_models": settings.GEMINI_FALLBACK_MODELS,
         "api_key_configured": bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here"),
         "max_upload_size_mb": settings.MAX_UPLOAD_SIZE_MB,
         "max_page_count": settings.MAX_PAGE_COUNT,

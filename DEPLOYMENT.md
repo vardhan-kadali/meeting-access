@@ -27,11 +27,11 @@ This guide details the step-by-step process for deploying **MEETING ACCESS** to 
   • Build Command: pip install -r backend/requirements.txt
   • Start Command: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
   • Health Check: /api/health
-  • Env Vars: GEMINI_API_KEY, GEMINI_MODEL, CORS_ORIGINS, PYTHON_VERSION
+  • Env Vars: GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODELS, CORS_ORIGINS, PYTHON_VERSION
          │
          │  3. Contextual extraction
          ▼
-[ Google Gemini Interactions API (`gemini-3.8-flash`) ]
+[ Google Gemini Interactions API (`gemini-3.8-flash` with `gemini-3.5-flash-lite` fallback) ]
 ```
 
 ---
@@ -69,7 +69,8 @@ Scroll down to the **"Environment Variables"** section and add the following key
 | :--- | :--- | :--- |
 | `PYTHON_VERSION` | `3.11.0` | Pin Python runtime version |
 | `ENVIRONMENT` | `production` | Production environment flag |
-| `GEMINI_MODEL` | `gemini-3.8-flash` | Candidate Gemini model |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Primary candidate Gemini model |
+| `GEMINI_FALLBACK_MODELS` | `gemini-3.5-flash-lite` | Ordered fallback models if primary model is unavailable or rate-limited |
 | `GEMINI_API_KEY` | *(Paste your Google Gemini API key)* | **Do not share in chat or public logs**; enter securely in Render's dashboard |
 | `CORS_ORIGINS` | `*` | Allows Cloudflare Pages to connect. (You can also specify your exact `https://<project>.pages.dev` domain once created) |
 
