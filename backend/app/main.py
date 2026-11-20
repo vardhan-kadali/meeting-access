@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import sys
 from app.config import settings
+from app.routers.documents import router as documents_router
 
 app = FastAPI(
     title="MEETING ACCESS API",
@@ -19,6 +20,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount Routers
+app.include_router(documents_router)
+
 @app.get("/api/health")
 async def health_check():
     """
@@ -33,4 +37,6 @@ async def health_check():
         "python_version": sys.version.split()[0],
         "configured_gemini_model": settings.GEMINI_MODEL,
         "api_key_configured": bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here"),
+        "max_upload_size_mb": settings.MAX_UPLOAD_SIZE_MB,
+        "max_page_count": settings.MAX_PAGE_COUNT,
     }
