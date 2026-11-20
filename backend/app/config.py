@@ -1,7 +1,8 @@
 import os
+import json
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
-from typing import List, Union
+from typing import List, Any
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
@@ -9,8 +10,10 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.8-flash"
-    GEMINI_FALLBACK_MODELS: List[str] = ["gemini-3.5-flash-lite"]
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Using Any prevents pydantic-settings from eagerly running json.loads on complex types
+    # prior to our custom field_validator, enabling transparent comma-separated and JSON list support.
+    GEMINI_FALLBACK_MODELS: Any = ["gemini-3.5-flash-lite"]
+    CORS_ORIGINS: Any = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     # Model Retry & Fallback Settings
     MAX_RETRIES_PER_MODEL: int = 2
@@ -22,33 +25,65 @@ class Settings(BaseSettings):
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+    def parse_cors_origins(cls, v: Any) -> List[str]:
+        raw_items: List[str] = []
         if isinstance(v, str):
-            v = v.strip()
-            if v.startswith("[") and v.endswith("]"):
-                import json
+            v_clean = v.strip()
+            if not v_clean or v_clean.lower() in ("none", "null", "false", "[]"):
+                return []
+            if v_clean == "*":
+                return ["*"]
+            if v_clean.startswith("[") or v_clean.startswith("{"):
                 try:
-                    return json.loads(v)
-                except Exception:
-                    pass
-            return [orig.strip() for orig in v.split(",") if orig.strip()]
-        return v
+                    parsed = json.loads(v_clean)
+                except Exception as e:
+                    raise ValueError(f"Invalid JSON in CORS_ORIGINS: {e}") from e
+                if not isinstance(parsed, list):
+                    raise ValueError("JSON in CORS_ORIGINS must be a list of origins")
+                raw_items = [str(orig).strip() for orig in parsed]
+            else:
+                raw_items = [orig.strip() for orig in v_clean.split(",")]
+        elif isinstance(v, list):
+            raw_items = [str(orig).strip() for orig in v]
+        elif v is None:
+            return []
+
+        deduped: List[str] = []
+        for item in raw_items:
+            if item and item not in deduped:
+                deduped.append(item)
+        return deduped
 
     @field_validator("GEMINI_FALLBACK_MODELS", mode="before")
     @classmethod
-    def parse_fallback_models(cls, v: Union[str, List[str]]) -> List[str]:
+    def parse_fallback_models(cls, v: Any) -> List[str]:
+        raw_items: List[str] = []
         if isinstance(v, str):
-            v = v.strip()
-            if not v or v.lower() in ("none", "null", "false", "[]"):
+            v_clean = v.strip()
+            if not v_clean or v_clean.lower() in ("none", "null", "false", "[]"):
                 return []
-            if v.startswith("[") and v.endswith("]"):
-                import json
+            if v_clean.startswith("[") or v_clean.startswith("{"):
                 try:
-                    return json.loads(v)
-                except Exception:
-                    pass
-            return [m.strip() for m in v.split(",") if m.strip()]
-        return v
+                    parsed = json.loads(v_clean)
+                except Exception as e:
+                    raise ValueError(f"Invalid JSON in GEMINI_FALLBACK_MODELS: {e}") from e
+                if not isinstance(parsed, list):
+                    raise ValueError("JSON in GEMINI_FALLBACK_MODELS must be a list of model names")
+                raw_items = [str(m).strip() for m in parsed]
+            else:
+                raw_items = [m.strip() for m in v_clean.split(",")]
+        elif isinstance(v, list):
+            raw_items = [str(m).strip() for m in v]
+        elif v is None:
+            return []
+        else:
+            raise ValueError(f"Unsupported type for GEMINI_FALLBACK_MODELS: {type(v)}")
+
+        deduped: List[str] = []
+        for item in raw_items:
+            if item and item.lower() not in ("none", "null") and item not in deduped:
+                deduped.append(item)
+        return deduped
 
     @property
     def model_chain(self) -> List[str]:
