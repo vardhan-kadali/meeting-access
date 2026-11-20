@@ -12,35 +12,38 @@ interface HealthResponse {
   max_page_count?: number
 }
 
-interface PageExtractionResult {
-  page_number: int
-  text: string
-  char_count: number
-  status: 'text_extracted' | 'low_text' | 'empty_or_image'
+interface FindingItem {
+  category: string
+  category_label: string
+  status: 'found' | 'unclear' | 'not_found_in_document' | 'not_applicable'
+  quote?: string | null
+  page_number?: number | null
+  is_quote_verified: boolean
+  verification_notes?: string | null
+  explanation: string
+  suggested_action: string
 }
 
-type int = number
-
-interface DocumentExtractionResponse {
+interface DocumentAnalysisResponse {
   filename: string
-  file_size_bytes: number
   total_pages: number
-  overall_status: 'text_extracted' | 'partially_extracted' | 'likely_scanned' | 'no_extractable_text'
+  extraction_status: string
+  model_used: string
+  analyzed_at: string
+  findings: FindingItem[]
+  verified_evidence_count: number
+  missing_evidence_count: number
+  unclear_evidence_count: number
   ocr_warning?: string | null
-  pages: PageExtractionResult[]
-  extracted_at: string
 }
 
 export default function App() {
-  // Backend health state
   const [health, setHealth] = useState<HealthResponse | null>(null)
-
-  // Document upload & extraction state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isExtracting, setIsExtracting] = useState<boolean>(false)
-  const [extractionResult, setExtractionResult] = useState<DocumentExtractionResponse | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false)
+  const [analysisResult, setAnalysisResult] = useState<DocumentAnalysisResponse | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [expandedPages, setExpandedPages] = useState<Record<number, boolean>>({})
+  const [statusFilter, setStatusFilter] = useState<'all' | 'found' | 'unclear' | 'not_found_in_document'>('all')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -57,9 +60,8 @@ export default function App() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       setSelectedFile(file)
-      setExtractionResult(null)
+      setAnalysisResult(null)
       setErrorMessage(null)
-      setExpandedPages({})
     }
   }
 
@@ -68,9 +70,8 @@ export default function App() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0]
       setSelectedFile(file)
-      setExtractionResult(null)
+      setAnalysisResult(null)
       setErrorMessage(null)
-      setExpandedPages({})
     }
   }
 
@@ -78,18 +79,18 @@ export default function App() {
     e.preventDefault()
   }
 
-  const handleUploadAndExtract = async () => {
+  const handleAnalyze = async () => {
     if (!selectedFile) return
 
-    setIsExtracting(true)
+    setIsAnalyzing(true)
     setErrorMessage(null)
-    setExtractionResult(null)
+    setAnalysisResult(null)
 
     const formData = new FormData()
     formData.append('file', selectedFile)
 
     try {
-      const response = await fetch('/api/documents/extract', {
+      const response = await fetch('/api/documents/analyze', {
         method: 'POST',
         body: formData,
       })
@@ -97,43 +98,19 @@ export default function App() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.detail || `Upload failed with status ${response.status}`)
+        throw new Error(data.detail || `Analysis failed with status ${response.status}`)
       }
 
-      setExtractionResult(data)
-      // Expand first page by default
-      if (data.pages && data.pages.length > 0) {
-        setExpandedPages({ 1: true })
-      }
+      setAnalysisResult(data)
     } catch (err: unknown) {
       if (err instanceof Error) {
         setErrorMessage(err.message)
       } else {
-        setErrorMessage('An unexpected error occurred while uploading the document.')
+        setErrorMessage('An unexpected error occurred during document analysis.')
       }
     } finally {
-      setIsExtracting(false)
+      setIsAnalyzing(false)
     }
-  }
-
-  const togglePage = (pageNum: number) => {
-    setExpandedPages((prev) => ({
-      ...prev,
-      [pageNum]: !prev[pageNum],
-    }))
-  }
-
-  const expandAll = () => {
-    if (!extractionResult) return
-    const allExpanded: Record<number, boolean> = {}
-    extractionResult.pages.forEach((p) => {
-      allExpanded[p.page_number] = true
-    })
-    setExpandedPages(allExpanded)
-  }
-
-  const collapseAll = () => {
-    setExpandedPages({})
   }
 
   const formatFileSize = (bytes: number): string => {
@@ -144,66 +121,73 @@ export default function App() {
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
-      case 'text_extracted':
+      case 'found':
         return (
           <span style={{
             backgroundColor: '#dcfce7',
             color: '#15803d',
             border: '1px solid #86efac',
-            padding: '0.25rem 0.65rem',
+            padding: '0.2rem 0.6rem',
             borderRadius: '9999px',
-            fontSize: '0.85rem',
+            fontSize: '0.8rem',
             fontWeight: 700
           }}>
-            Text Extracted
+            FOUND
           </span>
         )
-      case 'partially_extracted':
-        return (
-          <span style={{
-            backgroundColor: '#e0f2fe',
-            color: '#0369a1',
-            border: '1px solid #7dd3fc',
-            padding: '0.25rem 0.65rem',
-            borderRadius: '9999px',
-            fontSize: '0.85rem',
-            fontWeight: 700
-          }}>
-            Partially Extracted
-          </span>
-        )
-      case 'likely_scanned':
+      case 'unclear':
         return (
           <span style={{
             backgroundColor: '#fef3c7',
             color: '#b45309',
             border: '1px solid #fcd34d',
-            padding: '0.25rem 0.65rem',
+            padding: '0.2rem 0.6rem',
             borderRadius: '9999px',
-            fontSize: '0.85rem',
+            fontSize: '0.8rem',
             fontWeight: 700
           }}>
-            Likely Scanned
+            UNCLEAR
           </span>
         )
-      case 'no_extractable_text':
+      case 'not_found_in_document':
         return (
           <span style={{
             backgroundColor: '#f1f5f9',
             color: '#475569',
             border: '1px solid #cbd5e1',
-            padding: '0.25rem 0.65rem',
+            padding: '0.2rem 0.6rem',
             borderRadius: '9999px',
-            fontSize: '0.85rem',
+            fontSize: '0.8rem',
             fontWeight: 700
           }}>
-            No Extractable Text
+            NOT FOUND IN DOCUMENT
+          </span>
+        )
+      case 'not_applicable':
+        return (
+          <span style={{
+            backgroundColor: '#f8fafc',
+            color: '#94a3b8',
+            border: '1px solid #e2e8f0',
+            padding: '0.2rem 0.6rem',
+            borderRadius: '9999px',
+            fontSize: '0.8rem',
+            fontWeight: 700
+          }}>
+            NOT APPLICABLE
           </span>
         )
       default:
         return <span>{status}</span>
     }
   }
+
+  const filteredFindings = analysisResult
+    ? analysisResult.findings.filter((f) => {
+        if (statusFilter === 'all') return true
+        return f.status === statusFilter
+      })
+    : []
 
   return (
     <div style={{
@@ -218,7 +202,7 @@ export default function App() {
     }}>
       {/* Header */}
       <header style={{
-        maxWidth: '900px',
+        maxWidth: '960px',
         width: '100%',
         marginBottom: '2rem',
         textAlign: 'center'
@@ -239,7 +223,7 @@ export default function App() {
         }}>
           <span>Civic Accessibility Intelligence</span>
           <span>&bull;</span>
-          <span>Milestone 2: PDF Ingestion Engine</span>
+          <span>Milestone 3: Evidence Analysis</span>
         </div>
 
         <h1 style={{
@@ -272,22 +256,22 @@ export default function App() {
             borderRadius: '0.5rem',
             border: '1px solid #e2e8f0'
           }}>
-            <span>API: <strong>Active (v{health.version})</strong></span>
-            <span>Max Upload: <strong>{health.max_upload_size_mb || 15} MB</strong></span>
-            <span>Max Pages: <strong>{health.max_page_count || 100}</strong></span>
+            <span>API: <strong>Active</strong></span>
+            <span>Model: <strong>{health.configured_gemini_model}</strong></span>
+            <span>Key: <strong>{health.api_key_configured ? 'Verified' : 'Pending'}</strong></span>
           </div>
         )}
       </header>
 
-      {/* Main Container */}
+      {/* Main Content Area */}
       <main style={{
-        maxWidth: '900px',
+        maxWidth: '960px',
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
         gap: '1.5rem'
       }}>
-        {/* Upload Card */}
+        {/* Document Ingestion & Analysis Card */}
         <section aria-labelledby="upload-heading" style={{
           backgroundColor: '#ffffff',
           border: '1px solid #e2e8f0',
@@ -301,13 +285,13 @@ export default function App() {
             color: '#0f172a',
             margin: '0 0 0.5rem 0'
           }}>
-            Upload California Meeting Agenda
+            Analyze Public Meeting Agenda
           </h2>
           <p style={{ fontSize: '0.95rem', color: '#64748b', margin: '0 0 1.5rem 0' }}>
-            Upload a public meeting agenda in PDF format to test in-memory text extraction, physical page mapping, and scanned document detection.
+            Upload a California public meeting agenda (PDF). The system extracts and verifies disability accommodations, deadlines, ASL, CART captions, and participation instructions with verbatim page citations.
           </p>
 
-          {/* Drag & Drop Area */}
+          {/* Accessible Dropzone */}
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -320,7 +304,7 @@ export default function App() {
             }}
             tabIndex={0}
             role="button"
-            aria-label="Upload PDF agenda document"
+            aria-label="Upload agenda PDF document for participation analysis"
             style={{
               border: '2px dashed #94a3b8',
               borderRadius: '0.5rem',
@@ -328,7 +312,6 @@ export default function App() {
               textAlign: 'center',
               backgroundColor: '#f8fafc',
               cursor: 'pointer',
-              transition: 'border-color 0.15s ease-in-out',
               outline: 'none'
             }}
           >
@@ -344,11 +327,11 @@ export default function App() {
               Click to select or drag and drop agenda PDF
             </div>
             <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-              Standard PDF files up to 15MB &bull; Ephemeral in-memory processing
+              Standard California public meeting agendas &bull; Ephemeral in-memory analysis
             </div>
           </div>
 
-          {/* Selected File Details */}
+          {/* File Selected State */}
           {selectedFile && (
             <div style={{
               marginTop: '1.25rem',
@@ -366,44 +349,44 @@ export default function App() {
                   {selectedFile.name}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                  {formatFileSize(selectedFile.size)} &bull; {selectedFile.type || 'application/pdf'}
+                  {formatFileSize(selectedFile.size)} &bull; Ready for Participation Analysis
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
-                  onClick={handleUploadAndExtract}
-                  disabled={isExtracting}
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
                   style={{
                     backgroundColor: '#1e3a8a',
                     color: '#ffffff',
                     border: 'none',
-                    padding: '0.6rem 1.25rem',
+                    padding: '0.65rem 1.35rem',
                     borderRadius: '0.375rem',
                     fontWeight: 600,
                     fontSize: '0.95rem',
-                    cursor: isExtracting ? 'not-allowed' : 'pointer',
-                    opacity: isExtracting ? 0.7 : 1
+                    cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                    opacity: isAnalyzing ? 0.7 : 1
                   }}
                 >
-                  {isExtracting ? 'Extracting Pages...' : 'Extract Text & Pages'}
+                  {isAnalyzing ? 'Analyzing Agenda...' : 'Analyze Participation Readiness'}
                 </button>
                 <button
                   onClick={() => {
                     setSelectedFile(null)
-                    setExtractionResult(null)
+                    setAnalysisResult(null)
                     setErrorMessage(null)
                   }}
-                  disabled={isExtracting}
+                  disabled={isAnalyzing}
                   style={{
                     backgroundColor: '#ffffff',
                     color: '#64748b',
                     border: '1px solid #cbd5e1',
-                    padding: '0.6rem 0.9rem',
+                    padding: '0.65rem 0.9rem',
                     borderRadius: '0.375rem',
                     fontWeight: 600,
                     fontSize: '0.95rem',
-                    cursor: isExtracting ? 'not-allowed' : 'pointer'
+                    cursor: isAnalyzing ? 'not-allowed' : 'pointer'
                   }}
                 >
                   Clear
@@ -413,24 +396,24 @@ export default function App() {
           )}
 
           {/* Loading Indicator */}
-          {isExtracting && (
+          {isAnalyzing && (
             <div
               role="status"
               aria-live="polite"
               style={{
                 marginTop: '1.5rem',
-                padding: '1.25rem',
+                padding: '1.5rem',
                 backgroundColor: '#eff6ff',
                 border: '1px solid #bfdbfe',
                 borderRadius: '0.5rem',
                 textAlign: 'center'
               }}
             >
-              <div style={{ fontWeight: 600, color: '#1e40af', marginBottom: '0.5rem' }}>
-                Extracting document pages and calculating text density...
+              <div style={{ fontWeight: 700, color: '#1e40af', fontSize: '1.05rem', marginBottom: '0.5rem' }}>
+                Analyzing Public Meeting Participation Instructions...
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#3b82f6' }}>
-                Preserving 1-based physical page indices in memory.
+              <div style={{ fontSize: '0.9rem', color: '#3b82f6' }}>
+                Extracting verbatim evidence, verifying page numbers, and distinguishing accommodation deadlines.
               </div>
             </div>
           )}
@@ -449,22 +432,23 @@ export default function App() {
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>
-                Extraction Rejected or Failed:
+                Analysis Request Failed:
               </div>
               <div style={{ fontSize: '0.95rem' }}>{errorMessage}</div>
             </div>
           )}
         </section>
 
-        {/* Extraction Results View */}
-        {extractionResult && (
-          <section aria-labelledby="results-heading" style={{
+        {/* Participation Readiness Report Section */}
+        {analysisResult && (
+          <section aria-labelledby="report-heading" style={{
             backgroundColor: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: '0.75rem',
             padding: '2rem',
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
           }}>
+            {/* Report Header */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -476,26 +460,26 @@ export default function App() {
               paddingBottom: '1.25rem'
             }}>
               <div>
-                <h2 id="results-heading" style={{
-                  fontSize: '1.3rem',
-                  fontWeight: 700,
+                <h2 id="report-heading" style={{
+                  fontSize: '1.4rem',
+                  fontWeight: 800,
                   color: '#0f172a',
                   margin: '0 0 0.35rem 0'
                 }}>
-                  Document Extraction Report
+                  Participation Readiness Report
                 </h2>
                 <div style={{ fontSize: '0.9rem', color: '#64748b' }}>
-                  File: <strong>{extractionResult.filename}</strong> &bull; Size: {formatFileSize(extractionResult.file_size_bytes)} &bull; Total Pages: <strong>{extractionResult.total_pages}</strong>
+                  Document: <strong>{analysisResult.filename}</strong> &bull; Total Pages: <strong>{analysisResult.total_pages}</strong> &bull; Engine: <strong>{analysisResult.model_used}</strong>
                 </div>
               </div>
 
-              <div>
-                {renderStatusBadge(extractionResult.overall_status)}
+              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                Analyzed: {new Date(analysisResult.analyzed_at).toLocaleTimeString()}
               </div>
             </div>
 
-            {/* OCR Advisory Banner */}
-            {extractionResult.ocr_warning && (
+            {/* OCR Advisory If Present */}
+            {analysisResult.ocr_warning && (
               <div style={{
                 backgroundColor: '#fffbeb',
                 border: '1px solid #fde68a',
@@ -505,158 +489,240 @@ export default function App() {
                 fontSize: '0.9rem',
                 marginBottom: '1.5rem'
               }}>
-                <strong>Technical Advisory:</strong> {extractionResult.ocr_warning}
+                <strong>Notice:</strong> {analysisResult.ocr_warning}
               </div>
             )}
 
-            {/* Page Inspector Controls */}
+            {/* Scorecard Metric Grid (NO numerical score) */}
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '1rem'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem',
+              marginBottom: '1.75rem'
             }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>
-                Physical Pages ({extractionResult.pages.length})
-              </h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  onClick={expandAll}
-                  style={{
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '0.25rem',
-                    padding: '0.35rem 0.75rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Expand All
-                </button>
-                <button
-                  onClick={collapseAll}
-                  style={{
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '0.25rem',
-                    padding: '0.35rem 0.75rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Collapse All
-                </button>
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '0.5rem',
+                padding: '1rem'
+              }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                  Verified Evidence
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#15803d', marginTop: '0.25rem' }}>
+                  {analysisResult.verified_evidence_count} Items
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#166534', marginTop: '0.25rem' }}>
+                  Verbatim quotes matched to physical pages
+                </div>
+              </div>
+
+              <div style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '0.5rem',
+                padding: '1rem'
+              }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                  Not Found In Agenda
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#334155', marginTop: '0.25rem' }}>
+                  {analysisResult.missing_evidence_count} Items
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
+                  Information absent from uploaded text
+                </div>
+              </div>
+
+              <div style={{
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '0.5rem',
+                padding: '1rem'
+              }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase' }}>
+                  Unclear / Ambiguous
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#b45309', marginTop: '0.25rem' }}>
+                  {analysisResult.unclear_evidence_count} Items
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#92400e', marginTop: '0.25rem' }}>
+                  Needs clarification from meeting clerk
+                </div>
               </div>
             </div>
 
-            {/* List of Pages */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {extractionResult.pages.map((p) => {
-                const isExpanded = !!expandedPages[p.page_number]
-                return (
-                  <div
-                    key={p.page_number}
-                    style={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '0.5rem',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <button
-                      onClick={() => togglePage(p.page_number)}
-                      aria-expanded={isExpanded}
-                      style={{
-                        width: '100%',
+            {/* Filter Tabs */}
+            <div style={{
+              display: 'flex',
+              gap: '0.5rem',
+              marginBottom: '1.25rem',
+              flexWrap: 'wrap'
+            }}>
+              <button
+                onClick={() => setStatusFilter('all')}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: statusFilter === 'all' ? '#0f172a' : '#ffffff',
+                  color: statusFilter === 'all' ? '#ffffff' : '#475569',
+                  cursor: 'pointer'
+                }}
+              >
+                All Categories ({analysisResult.findings.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('found')}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  border: '1px solid #86efac',
+                  backgroundColor: statusFilter === 'found' ? '#15803d' : '#f0fdf4',
+                  color: statusFilter === 'found' ? '#ffffff' : '#166534',
+                  cursor: 'pointer'
+                }}
+              >
+                Found ({analysisResult.findings.filter((f) => f.status === 'found').length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('not_found_in_document')}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: statusFilter === 'not_found_in_document' ? '#475569' : '#f1f5f9',
+                  color: statusFilter === 'not_found_in_document' ? '#ffffff' : '#334155',
+                  cursor: 'pointer'
+                }}
+              >
+                Not Found ({analysisResult.missing_evidence_count})
+              </button>
+              <button
+                onClick={() => setStatusFilter('unclear')}
+                style={{
+                  padding: '0.4rem 0.85rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  border: '1px solid #fcd34d',
+                  backgroundColor: statusFilter === 'unclear' ? '#b45309' : '#fffbeb',
+                  color: statusFilter === 'unclear' ? '#ffffff' : '#92400e',
+                  cursor: 'pointer'
+                }}
+              >
+                Unclear ({analysisResult.unclear_evidence_count})
+              </button>
+            </div>
+
+            {/* Findings List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {filteredFindings.map((finding) => (
+                <article
+                  key={finding.category}
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '0.5rem',
+                    padding: '1.25rem',
+                    backgroundColor: '#ffffff'
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                    marginBottom: '0.75rem'
+                  }}>
+                    <h3 style={{
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      margin: 0
+                    }}>
+                      {finding.category_label}
+                    </h3>
+                    <div>{renderStatusBadge(finding.status)}</div>
+                  </div>
+
+                  {/* Verbatim Evidence Quote Callout */}
+                  {finding.quote && (
+                    <div style={{
+                      backgroundColor: '#f8fafc',
+                      borderLeft: finding.is_quote_verified ? '4px solid #16a34a' : '4px solid #f59e0b',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '0 0.375rem 0.375rem 0',
+                      marginBottom: '0.85rem'
+                    }}>
+                      <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        padding: '0.85rem 1rem',
-                        backgroundColor: isExpanded ? '#f8fafc' : '#ffffff',
-                        border: 'none',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        fontSize: '0.95rem'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontWeight: 700, color: '#0f172a' }}>
-                          Page {p.page_number}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                          ({p.char_count} chars)
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '0.25rem',
-                          backgroundColor:
-                            p.status === 'text_extracted'
-                              ? '#dcfce7'
-                              : p.status === 'low_text'
-                              ? '#fef3c7'
-                              : '#f1f5f9',
-                          color:
-                            p.status === 'text_extracted'
-                              ? '#166534'
-                              : p.status === 'low_text'
-                              ? '#92400e'
-                              : '#475569',
-                        }}>
-                          {p.status}
-                        </span>
-                        <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                          {isExpanded ? '▲' : '▼'}
-                        </span>
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div style={{
-                        padding: '1rem',
-                        borderTop: '1px solid #e2e8f0',
-                        backgroundColor: '#ffffff'
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: finding.is_quote_verified ? '#15803d' : '#b45309',
+                        marginBottom: '0.35rem',
+                        textTransform: 'uppercase'
                       }}>
-                        {p.text.trim().length > 0 ? (
-                          <pre style={{
-                            margin: 0,
-                            padding: '1rem',
-                            backgroundColor: '#f8fafc',
-                            borderRadius: '0.375rem',
-                            border: '1px solid #e2e8f0',
-                            fontSize: '0.85rem',
-                            color: '#1e293b',
-                            lineHeight: 1.5,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            maxHeight: '350px',
-                            overflowY: 'auto'
+                        <span>
+                          {finding.is_quote_verified ? 'Verified Document Citation' : 'Citation Requires Inspection'}
+                        </span>
+                        {finding.page_number && (
+                          <span style={{
+                            backgroundColor: finding.is_quote_verified ? '#dcfce7' : '#fef3c7',
+                            padding: '0.1rem 0.45rem',
+                            borderRadius: '0.25rem'
                           }}>
-                            {p.text}
-                          </pre>
-                        ) : (
-                          <div style={{
-                            padding: '1rem',
-                            backgroundColor: '#f8fafc',
-                            borderRadius: '0.375rem',
-                            color: '#94a3b8',
-                            fontStyle: 'italic',
-                            fontSize: '0.85rem',
-                            textAlign: 'center'
-                          }}>
-                            No selectable text detected on this page (likely scanned image or blank page).
-                          </div>
+                            Physical Page {finding.page_number}
+                          </span>
                         )}
                       </div>
-                    )}
+                      <blockquote style={{
+                        margin: 0,
+                        fontSize: '0.9rem',
+                        fontStyle: 'italic',
+                        color: '#1e293b',
+                        lineHeight: 1.5
+                      }}>
+                        "{finding.quote}"
+                      </blockquote>
+                      {finding.verification_notes && (
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>
+                          Note: {finding.verification_notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Plain Language Explanation */}
+                  <div style={{ fontSize: '0.92rem', color: '#334155', lineHeight: 1.5, marginBottom: '0.75rem' }}>
+                    {finding.explanation}
                   </div>
-                )
-              })}
+
+                  {/* Suggested Next Action */}
+                  <div style={{
+                    backgroundColor: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    borderRadius: '0.375rem',
+                    padding: '0.65rem 0.9rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.5rem',
+                    fontSize: '0.85rem',
+                    color: '#0369a1'
+                  }}>
+                    <strong style={{ color: '#0284c7' }}>Suggested Action:</strong>
+                    <span>{finding.suggested_action}</span>
+                  </div>
+                </article>
+              ))}
             </div>
           </section>
         )}
@@ -669,7 +735,7 @@ export default function App() {
         color: '#64748b',
         textAlign: 'center'
       }}>
-        MEETING ACCESS &bull; Bridge The Gap Hacks &bull; Civic Accessibility Intelligence
+        MEETING ACCESS &bull; Bridge The Gap Hacks &bull; Civic Accessibility Intelligence &bull; Ralph M. Brown Act &bull; ADA Title II
       </footer>
     </div>
   )

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import sys
 from app.config import settings
 from app.routers.documents import router as documents_router
+from app.routers.analysis import router as analysis_router
 
 app = FastAPI(
     title="MEETING ACCESS API",
@@ -22,6 +23,7 @@ app.add_middleware(
 
 # Mount Routers
 app.include_router(documents_router)
+app.include_router(analysis_router)
 
 @app.get("/api/health")
 async def health_check():
