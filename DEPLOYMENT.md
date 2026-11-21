@@ -31,7 +31,7 @@ This guide details the step-by-step process for deploying **MEETING ACCESS** to 
          │
          │  3. Contextual extraction
          ▼
-[ Google Gemini Interactions API (`gemini-3.8-flash` with `gemini-3.5-flash-lite` fallback) ]
+[ Google Gemini Interactions API (`gemini-3.5-flash-lite` with `gemini-3.1-flash-lite` fallback) ]
 ```
 
 ---
@@ -69,8 +69,8 @@ Scroll down to the **"Environment Variables"** section and add the following key
 | :--- | :--- | :--- |
 | `PYTHON_VERSION` | `3.11.0` | Pin Python runtime version |
 | `ENVIRONMENT` | `production` | Production environment flag |
-| `GEMINI_MODEL` | `gemini-3.8-flash` | Primary candidate Gemini model |
-| `GEMINI_FALLBACK_MODELS` | `gemini-3.5-flash-lite` | Ordered fallback models if primary model is unavailable or rate-limited |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Primary candidate Gemini model |
+| `GEMINI_FALLBACK_MODELS` | `gemini-3.1-flash-lite` | Ordered fallback models if primary model is unavailable or rate-limited |
 | `GEMINI_API_KEY` | *(Paste your Google Gemini API key)* | **Do not share in chat or public logs**; enter securely in Render's dashboard |
 | `CORS_ORIGINS` | `*` | Allows Cloudflare Pages to connect. (You can also specify your exact `https://<project>.pages.dev` domain once created) |
 
@@ -138,7 +138,7 @@ Once both services are deployed, test the complete live application in your brow
 
 1. **Backend Health Check:**
    - Open: `https://<your-render-url>/api/health`
-   - Verify HTTP 200 JSON response confirming `status: "healthy"`, `configured_gemini_model: "gemini-3.8-flash"`, and `api_key_configured: true`.
+   - Verify HTTP 200 JSON response confirming `status: "healthy"`, `configured_gemini_model: "gemini-3.5-flash-lite"`, and `api_key_configured: true`.
 2. **Frontend UI Loading:**
    - Open: `https://<your-cloudflare-pages-url>.pages.dev`
    - Confirm the hero section, tagline, and badges render cleanly.

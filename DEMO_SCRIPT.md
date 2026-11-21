@@ -82,10 +82,10 @@
 > *"Under the hood, MEETING ACCESS is built with a zero-cost production stack:
 > - **Frontend:** React 19 + TypeScript + Vite, featuring high-contrast accessible layouts and ARIA live regions.
 > - **Backend:** Python 3.11 + FastAPI + Pydantic v2 schemas.
-> - **AI Extraction:** Google Gemini (`gemini-3.8-flash`) via the official Google Gen AI Python SDK.
+> - **AI Extraction:** Google Gemini (`gemini-3.5-flash-lite` primary with `gemini-3.1-flash-lite` fallback) via the official Google Gen AI Python SDK.
 > - **Verification Engine:** Pure Python deterministic substring & normalization validator running in memory.
-> - **Zero Permanent Storage:** Ephemeral document processing; temporary spooled files are deleted immediately on completion with zero permanent attendee document retention.
-> - **Test Suite:** 43 automated unit and integration tests passing in pytest with zero failures."*
+> - **Ephemeral Processing:** Ephemeral document processing; temporary spooled files are released immediately on completion without persistent document storage.
+> - **Test Suite:** 61 automated unit and integration tests passing in pytest with zero failures."*
 
 ---
 

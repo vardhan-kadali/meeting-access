@@ -100,7 +100,7 @@ def sample_pdf_content():
 # 1. Primary Model Succeeds Without Fallback
 @pytest.mark.anyio
 async def test_primary_model_succeeds_without_fallback():
-    """Primary model (gemini-3.8-flash) succeeds on first attempt; model_used recorded properly."""
+    """Primary model (gemini-3.5-flash-lite) succeeds on first attempt; model_used recorded properly."""
     pdf_bytes = sample_pdf_content()
     mock_response = MagicMock()
     mock_response.text = json.dumps(make_standard_mock_findings())
@@ -117,16 +117,16 @@ async def test_primary_model_succeeds_without_fallback():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["model_used"] == "gemini-3.8-flash"
+    assert data["model_used"] == "gemini-3.5-flash-lite"
     assert mock_client.models.generate_content.call_count == 1
     call_kwargs = mock_client.models.generate_content.call_args[1]
-    assert call_kwargs["model"] == "gemini-3.8-flash"
+    assert call_kwargs["model"] == "gemini-3.5-flash-lite"
 
 
 # 2. Primary 503 -> Fallback Succeeds
 @pytest.mark.anyio
 async def test_primary_503_fallback_succeeds():
-    """Primary model returns 503 on all retries, fallback model (gemini-3.5-flash-lite) succeeds."""
+    """Primary model returns 503 on all retries, fallback model (gemini-3.1-flash-lite) succeeds."""
     pdf_bytes = sample_pdf_content()
     mock_success = MagicMock()
     mock_success.text = json.dumps(make_standard_mock_findings())
@@ -154,7 +154,7 @@ async def test_primary_503_fallback_succeeds():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["model_used"] == "gemini-3.5-flash-lite"
+    assert data["model_used"] == "gemini-3.1-flash-lite"
     assert mock_client.models.generate_content.call_count == 3
 
 
@@ -177,7 +177,7 @@ async def test_primary_exhausts_retries_before_fallback():
     def mock_generate_content(*args, **kwargs):
         model = kwargs.get("model")
         models_called.append(model)
-        if model == "gemini-3.8-flash":
+        if model == "gemini-3.5-flash-lite":
             raise server_error
         return mock_success
 
@@ -192,11 +192,11 @@ async def test_primary_exhausts_retries_before_fallback():
             )
 
     assert resp.status_code == 200
-    assert resp.json()["model_used"] == "gemini-3.5-flash-lite"
+    assert resp.json()["model_used"] == "gemini-3.1-flash-lite"
     assert models_called == [
-        "gemini-3.8-flash",
-        "gemini-3.8-flash",
-        "gemini-3.5-flash-lite"
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite"
     ]
 
 
@@ -300,7 +300,7 @@ async def test_invalid_model_configuration_handled():
     def mock_generate_content(*args, **kwargs):
         model = kwargs.get("model")
         models_called.append(model)
-        if model == "gemini-3.8-flash":
+        if model == "gemini-3.5-flash-lite":
             raise not_found_error
         return mock_success
 
@@ -315,9 +315,9 @@ async def test_invalid_model_configuration_handled():
             )
 
     assert resp.status_code == 200
-    assert resp.json()["model_used"] == "gemini-3.5-flash-lite"
+    assert resp.json()["model_used"] == "gemini-3.1-flash-lite"
     # Primary was called ONCE (no retries on 404), fallback was called ONCE and succeeded
-    assert models_called == ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    assert models_called == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
 
 
 # 8. Fallback Output Passes Strict Evidence Verification
@@ -358,7 +358,7 @@ async def test_fallback_output_passes_evidence_verification():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["model_used"] == "gemini-3.5-flash-lite"
+    assert data["model_used"] == "gemini-3.1-flash-lite"
 
     contact = next(f for f in data["findings"] if f["category"] == "disability_accommodation_contact")
     assert contact["is_quote_verified"] is True
@@ -398,7 +398,7 @@ async def test_deadline_interpretation_preserved_on_fallback():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["model_used"] == "gemini-3.5-flash-lite"
+    assert data["model_used"] == "gemini-3.1-flash-lite"
 
     interp = data["deadline_interpretation"]
     assert interp is not None

@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     PORT: int = 8000
     HOST: str = "0.0.0.0"
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     # Using Any prevents pydantic-settings from eagerly running json.loads on complex types
     # prior to our custom field_validator, enabling transparent comma-separated and JSON list support.
-    GEMINI_FALLBACK_MODELS: Any = ["gemini-3.5-flash-lite"]
+    GEMINI_FALLBACK_MODELS: Any = ["gemini-3.1-flash-lite"]
     CORS_ORIGINS: Any = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     # Model Retry & Fallback Settings
@@ -99,7 +99,7 @@ class Settings(BaseSettings):
                 clean_m = fallback.strip()
                 if clean_m not in chain and clean_m.lower() not in ("none", "null"):
                     chain.append(clean_m)
-        return chain or ["gemini-3.8-flash"]
+        return chain or ["gemini-3.5-flash-lite"]
 
     model_config = SettingsConfigDict(
         env_file=".env",

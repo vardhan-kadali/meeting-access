@@ -106,7 +106,7 @@ MEETING ACCESS was designed from day one to operate entirely within a **$0 budge
   │      • Ephemeral processing (temporary spooled resources released immediately in finally blocks)
   │      • Text density & scanned document heuristic checks (OCR not currently implemented; scans flagged)
   │
-  ├── 2. Google Gen AI SDK (`gemini-3.8-flash` primary with automatic fallback to `gemini-3.5-flash-lite`)
+  ├── 2. Google Gen AI SDK (`gemini-3.5-flash-lite` primary with automatic fallback to `gemini-3.1-flash-lite`)
   │      • Contextual schema extraction with structured JSON output
   │      • Prompt injection containment (`<untrusted_agenda_content>`)
   │      • Exponential backoff retry handler (mitigating transient 503 spikes)

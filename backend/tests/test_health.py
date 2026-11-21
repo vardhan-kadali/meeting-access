@@ -12,4 +12,5 @@ async def test_health_endpoint():
     assert data["service"] == "MEETING ACCESS API"
     assert "version" in data
     assert "configured_gemini_model" in data
-    assert data["configured_gemini_model"] == "gemini-3.8-flash"
+    assert data["configured_gemini_model"] == "gemini-3.5-flash-lite"
+    assert data["configured_fallback_models"] == ["gemini-3.1-flash-lite"]
